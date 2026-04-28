@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -8,75 +9,74 @@ export default function Login() {
   const { setIsLoggedIn } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+ const handleLogin = async (e) => {
     e.preventDefault();
-    // Samet Backend'i bağlayana kadar girişi başarılı varsayıp Dashboard'a atıyoruz
-    setIsLoggedIn(true);
-    navigate('/dashboard');
+    try {
+      // Şimdilik backend'e gitmeyi deniyoruz, hata alırsak simülasyona geçiyoruz
+      const response = await axiosInstance.post('/api/auth/login', { email, password });
+      if (response.status === 200) {
+        localStorage.setItem('user', JSON.stringify(response.data));
+        setIsLoggedIn(true);
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.log("Backend henüz hazır değil, test girişi yapılıyor...");
+      // TEST GİRİŞİ: Backend çalışmasa bile seni içeri alır
+      localStorage.setItem('user', JSON.stringify({ email: email, id: 1 }));
+      setIsLoggedIn(true);
+      navigate('/dashboard');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 border border-gray-200">
-        
-        {/* Logo ve Başlık Alanı */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-wide">NOYON</h2>
-          <p className="text-gray-500 text-sm">Sisteme erişmek için giriş yapın</p>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-10 border border-gray-200">
+        <div className="text-center mb-10">
+          <h2 className="text-4xl font-black text-gray-900 mb-3 tracking-tighter italic">NOYON</h2>
+          <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Sistem Girişi</p>
         </div>
         
-        {/* Giriş Formu */}
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">E-posta Adresi</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Kurumsal E-posta</label>
             <input 
               type="email" 
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-gray-800 outline-none transition-all text-gray-700 bg-gray-50"
-              placeholder="ornek@noyon.com"
+              className="w-full px-5 py-4 border-0 rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all text-gray-800 bg-gray-50 shadow-inner"
+              placeholder="emrah@noyon.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Şifre</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Şifre</label>
             <input 
               type="password" 
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-gray-800 outline-none transition-all text-gray-700 bg-gray-50"
+              className="w-full px-5 py-4 border-0 rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all text-gray-800 bg-gray-50 shadow-inner"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center text-gray-600 cursor-pointer hover:text-gray-900">
-              <input type="checkbox" className="mr-2 rounded border-gray-300 text-gray-800 focus:ring-gray-800" />
-              Beni Hatırla
-            </label>
-            <a href="#" className="text-gray-500 hover:text-gray-900 font-medium transition-colors">
-              Şifremi Unuttum
-            </a>
-          </div>
-
           <button 
             type="submit" 
-            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md"
+            className="w-full bg-gray-900 hover:bg-black text-white font-black py-4 px-4 rounded-xl transition-all duration-300 transform hover:-translate-y-1 shadow-lg active:scale-95"
           >
-            Giriş Yap
+            GİRİŞ YAP
           </button>
         </form>
 
-        {/* Alt Bilgi */}
-        <div className="mt-8 text-center text-sm text-gray-600">
-          Hesabınız yok mu?{' '}
-          <Link to="/register" className="font-semibold text-gray-900 hover:underline">
-            Hemen Kayıt Olun
-          </Link>
+        <div className="mt-10 text-center border-t border-gray-100 pt-6">
+          <p className="text-sm text-gray-400">
+            Hesabınız yok mu?{' '}
+            <Link to="/register" className="font-bold text-gray-900 hover:text-gray-600 underline decoration-2 underline-offset-4">
+              Kayıt Olun
+            </Link>
+          </p>
         </div>
-
       </div>
     </div>
   );
