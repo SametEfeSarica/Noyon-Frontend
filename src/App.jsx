@@ -1,38 +1,29 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-
-// Giriş yapmayanları kovan özel bileşenimiz
-const ProtectedRoute = ({ children }) => {
-  const { isLoggedIn } = useAuth();
-  
-  if (!isLoggedIn) {
-    return <Navigate to="/login" />;
-  }
-  
-  return children;
-};
+import Register from './pages/Register'; // BURAYI KONTROL ET: Import edilmiş mi?
+import DashboardLayout from './components/DashboardLayout';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 1. Giriş Sayfası */}
         <Route path="/login" element={<Login />} />
+        
+        {/* 2. Kayıt Sayfası (Dışarıda olmalı ki Login'den ulaşılabilsin) */}
         <Route path="/register" element={<Register />} />
         
-        {/* Dashboard'u korumaya alıyoruz */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
+        {/* 3. Dashboard ve İç Sayfaları */}
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<h1>Dashboard Ana Sayfasına Hoş Geldiniz</h1>} />
+          <Route path="notlar" element={<h1>Notlar Bölümü</h1>} />
+          <Route path="kutuphane" element={<h1>Kütüphane Bölümü</h1>} />
+          <Route path="projeler" element={<h1>Projeler Bölümü</h1>} />
+          <Route path="abonelikler" element={<h1>Abonelikler Bölümü</h1>} />
+        </Route>
 
-        {/* Tanımsız bir adrese girilirse Login'e yönlendir */}
+        {/* 4. Yanlış yola girilirse Login'e at */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>

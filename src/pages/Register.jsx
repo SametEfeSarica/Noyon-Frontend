@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axiosInstance from '../api/axiosInstance';
 
 export default function Register() {
   const [fullName, setFullName] = useState('');
@@ -7,44 +8,51 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    // Samet Backend tarafını bağlayana kadar sistemi çalışıyor varsayıyoruz
-    // Kayıt başarılı olunca kullanıcıyı giriş yapması için Login sayfasına yönlendiriyoruz
-    alert("Kayıt işlemi başarılı! Lütfen giriş yapın.");
-    navigate('/login');
+    try {
+      const response = await axiosInstance.post('/api/auth/register', { fullName, email, password });
+      if (response.status === 201 || response.status === 200) {
+        alert("Kayıt başarılı!");
+        navigate('/login');
+      }
+    } catch (error) {
+      console.log("Backend henüz hazır değil, kayıt simüle ediliyor...");
+      alert("Kayıt simülasyonu başarılı! Giriş yapabilirsiniz.");
+      navigate('/login');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-10 border border-gray-200">
         
-        {/* Logo ve Başlık Alanı */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-wide">NOYON</h2>
-          <p className="text-gray-500 text-sm">Aramıza katılmak için hesap oluşturun</p>
+        {/* Logo ve Başlık */}
+        <div className="text-center mb-10">
+          <h2 className="text-4xl font-black text-gray-900 mb-3 tracking-tighter italic">NOYON</h2>
+          <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Yeni Hesap Oluştur</p>
         </div>
         
         {/* Kayıt Formu */}
         <form onSubmit={handleRegister} className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Ad Soyad</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Ad Soyad</label>
             <input 
               type="text" 
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-gray-800 outline-none transition-all text-gray-700 bg-gray-50"
-              placeholder="Adınız ve Soyadınız"
+              className="w-full px-5 py-4 border-0 rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all text-gray-800 bg-gray-50 shadow-inner"
+              placeholder="Adınız Soyadınız"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">E-posta Adresi</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">E-posta Adresi</label>
             <input 
               type="email" 
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-gray-800 outline-none transition-all text-gray-700 bg-gray-50"
+              className="w-full px-5 py-4 border-0 rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all text-gray-800 bg-gray-50 shadow-inner"
               placeholder="ornek@noyon.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -52,11 +60,11 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Şifre</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Şifre</label>
             <input 
               type="password" 
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-gray-800 outline-none transition-all text-gray-700 bg-gray-50"
+              className="w-full px-5 py-4 border-0 rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all text-gray-800 bg-gray-50 shadow-inner"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -65,20 +73,20 @@ export default function Register() {
 
           <button 
             type="submit" 
-            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md mt-2"
+            className="w-full bg-gray-900 hover:bg-black text-white font-black py-4 px-4 rounded-xl transition-all duration-300 transform hover:-translate-y-1 shadow-lg mt-4 active:scale-95"
           >
-            Kayıt Ol
+            HESAP OLUŞTUR
           </button>
         </form>
 
-        {/* Alt Bilgi */}
-        <div className="mt-8 text-center text-sm text-gray-600">
-          Zaten bir hesabınız var mı?{' '}
-          <Link to="/login" className="font-semibold text-gray-900 hover:underline">
-            Giriş Yapın
-          </Link>
+        <div className="mt-10 text-center border-t border-gray-100 pt-6">
+          <p className="text-sm text-gray-400">
+            Zaten hesabınız var mı?{' '}
+            <Link to="/login" className="font-bold text-gray-900 hover:text-gray-600 underline decoration-2 underline-offset-4">
+              Giriş Yapın
+            </Link>
+          </p>
         </div>
-
       </div>
     </div>
   );
