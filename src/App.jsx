@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register'; // BURAYI KONTROL ET: Import edilmiş mi?
 import DashboardLayout from './components/DashboardLayout';
+import Library from './components/Library';
 
 function App() {
   return (
