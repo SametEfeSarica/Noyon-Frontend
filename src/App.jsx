@@ -19,7 +19,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<h1>Dashboard Ana Sayfasına Hoş Geldiniz</h1>} />
           <Route path="notlar" element={<h1>Notlar Bölümü</h1>} />
-          <Route path="kutuphane" element={<h1>Kütüphane Bölümü</h1>} />
+          <Route path="kutuphane" element={<Library />} />
           <Route path="projeler" element={<h1>Projeler Bölümü</h1>} />
           <Route path="abonelikler" element={<h1>Abonelikler Bölümü</h1>} />
         </Route>
