@@ -9,22 +9,29 @@ export default function Login() {
   const { setIsLoggedIn } = useAuth();
   const navigate = useNavigate();
 
- const handleLogin = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // Şimdilik backend'e gitmeyi deniyoruz, hata alırsak simülasyona geçiyoruz
+      // 1. ADIM: Backend'e isteği gönder
       const response = await axiosInstance.post('/api/auth/login', { email, password });
+      
+      // 2. ADIM: Sadece 200 OK dönerse işlemleri yap
       if (response.status === 200) {
+        // Samet'in uyarısı: UserId'yi mutlaka kaydet
+        // response.data.id backend'den gelen id olmalı
+        localStorage.setItem("userId", response.data.id);
+        
+        // Genel kullanıcı verisini de saklamak gerekebilir (isim vb. için)
         localStorage.setItem('user', JSON.stringify(response.data));
+        
         setIsLoggedIn(true);
         navigate('/dashboard');
       }
     } catch (error) {
-      console.log("Backend henüz hazır değil, test girişi yapılıyor...");
-      // TEST GİRİŞİ: Backend çalışmasa bile seni içeri alır
-      localStorage.setItem('user', JSON.stringify({ email: email, id: 1 }));
-      setIsLoggedIn(true);
-      navigate('/dashboard');
+      console.error("Bağlantı Hatası:", error);
+      
+      // Hata olduğunda uyarı veriyoruz ve içeri ASLA almıyoruz
+      alert("⚠️ NOYON SİSTEM UYARISI: Sunucuya ulaşılamıyor veya bilgiler hatalı! Lütfen backend'in çalıştığından emin ol.");
     }
   };
 

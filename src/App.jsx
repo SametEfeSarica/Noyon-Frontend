@@ -3,8 +3,27 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import DashboardLayout from './components/DashboardLayout';
+import TrashBin from './pages/TrashBin';
 
-function DashboardHome() {
+
+const ProtectedRoute = ({ children }) => {
+  const userId = localStorage.getItem("userId");
+
+if (!userId) {
+    return <Navigate to="/login" />;
+  }
+  return children;
+};
+// Diğer sayfalar için şimdilik geçici bir "Hazırlanıyor" bileşeni
+const PlaceholderPage = ({ title }) => (
+  <div className="flex items-center justify-center min-h-full">
+    <h1 className="text-2xl font-black text-gray-300 uppercase tracking-widest">
+      {title} Sayfası Yakında Burada Olacak 🚀
+    </h1>
+  </div>
+);
+
+function DashboardHomeContent() {
   const [bannerImage, setBannerImage] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
   
@@ -35,8 +54,6 @@ function DashboardHome() {
 
   return (
     <div className="flex flex-col min-h-full bg-[#fcfcfc] font-sans pb-10">
-      
-      {/* 1. DİNAMİK BANNER ALANI */}
       <div 
         className="relative h-40 w-full bg-[#1e1b4b] overflow-hidden shadow-sm flex items-center justify-center flex-col z-20 group cursor-pointer"
         onClick={() => bannerInputRef.current.click()}
@@ -53,7 +70,6 @@ function DashboardHome() {
              <span className="text-yellow-400 text-3xl animate-pulse">☀️</span>
              <span className="text-white text-2xl">☁️</span>
           </div>
-          
           <h1 className="text-3xl md:text-4xl font-bold text-white tracking-[0.2em] uppercase leading-tight drop-shadow-md" style={{ fontFamily: 'Georgia, serif' }}>
             Hoşgeldin
           </h1>
@@ -62,17 +78,10 @@ function DashboardHome() {
             Efe, vizyonunu bugün gerçeğe dönüştür.
           </p>
         </div>
-
-        <div className="absolute bottom-4 right-6 bg-black/50 backdrop-blur-md px-3 py-1 rounded text-[10px] text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">
-          Arka Planı Değiştir
-        </div>
         <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleUpload(e, setBannerImage)} />
       </div>
       
-      {/* 2. İÇERİK IZGARASI */}
       <div className="flex-1 px-12 py-10 max-w-[1400px] mx-auto w-full grid grid-cols-1 xl:grid-cols-4 gap-10 -mt-8 z-30">
-        
-        {/* SOL SÜTUN */}
         <div className="col-span-1 space-y-10">
           <div className="bg-white p-10 rounded-3xl shadow-sm border border-gray-200 flex flex-col items-center text-center transition-all hover:shadow-md">
             <div className="relative group cursor-pointer" onClick={(e) => { e.stopPropagation(); profileInputRef.current.click(); }}>
@@ -104,31 +113,16 @@ function DashboardHome() {
           </div>
         </div>
 
-        {/* SAĞ SÜTUN */}
         <div className="col-span-1 xl:col-span-3 flex flex-col h-full w-full overflow-hidden">
           <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-10 flex-1 flex flex-col w-full">
-            
-            {/* BAŞLIK VE SEKMELER (SABİTLENDİ) */}
             <div className="flex items-center justify-between mb-10 w-full overflow-hidden">
-              <h2 className="text-2xl font-black text-gray-900 tracking-tighter whitespace-nowrap mr-6">NOTLAR</h2>
-              
-              {/* Flex-wrap kaldırıldı, whitespace-nowrap eklendi, kaydırma engellendi */}
-              <div 
-                className="flex items-center space-x-1 bg-gray-100 p-1.5 rounded-2xl border border-gray-200 overflow-x-auto"
-                style={{ scrollbarWidth: 'none' }} /* Kaydırma çubuğunu gizler */
-              >
+              <h2 className="text-2xl font-black text-gray-900 tracking-tighter whitespace-nowrap mr-6 text-indigo-700">NOTLAR</h2>
+              <div className="flex items-center space-x-1 bg-gray-100 p-1.5 rounded-2xl border border-gray-200 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
                 {['Tümü', 'Notlar', 'Kütüphane', 'Projeler', 'Abonelikler'].map(tab => (
-                  <button 
-                    key={tab} 
-                    onClick={() => setActiveTab(tab)} 
-                    className={`px-4 lg:px-5 py-2 rounded-xl text-[11px] lg:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === tab ? 'bg-white text-indigo-700 shadow-md border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}
-                  >
-                    {tab}
-                  </button>
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 lg:px-5 py-2 rounded-xl text-[11px] lg:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === tab ? 'bg-white text-indigo-700 shadow-md border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>{tab}</button>
                 ))}
               </div>
             </div>
-
             <div className="space-y-4 overflow-y-auto pr-2 flex-1">
               {filteredContents.map(work => (
                 <div key={work.id} className="group flex items-center justify-between bg-white p-6 rounded-2xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer shadow-sm hover:shadow-md">
@@ -153,16 +147,36 @@ function DashboardHome() {
   );
 }
 
-function App() {
+// ANA ROUTER YAPISI
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<DashboardLayout />}><Route index element={<DashboardHome />} /></Route>
+
+        <Route path="/dashboard" element={
+  <ProtectedRoute>
+    <DashboardLayout />
+  </ProtectedRoute>
+}></Route>
+
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        
+        {/* Dashboard Grubu */}
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<DashboardHomeContent />} />
+          <Route path="trash" element={<TrashBin />} />
+          
+          {/* EKSİK ROTARLAR BURAYA EKLENDİ */}
+          <Route path="notlar" element={<PlaceholderPage title="Notlar" />} />
+          <Route path="kutuphane" element={<PlaceholderPage title="Kütüphane" />} />
+          <Route path="projeler" element={<PlaceholderPage title="Projeler" />} />
+          <Route path="abonelikler" element={<PlaceholderPage title="Abonelikler" />} />
+          <Route path="favoriler" element={<PlaceholderPage title="Favoriler" />} />
+        </Route>
+
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   );
 }
-
-export default App;
