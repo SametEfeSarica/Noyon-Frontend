@@ -12,14 +12,15 @@ export default function Register() {
     e.preventDefault();
     try {
       const response = await axiosInstance.post('/api/auth/register', { fullName, email, password });
+      
       if (response.status === 201 || response.status === 200) {
         alert("Kayıt başarılı!");
         navigate('/login');
       }
     } catch (error) {
-      console.log("Backend henüz hazır değil, kayıt simüle ediliyor...");
-      alert("Kayıt simülasyonu başarılı! Giriş yapabilirsiniz.");
-      navigate('/login');
+      // DEĞİŞEN KISIM BURASI: Sahte simülasyon silindi. Artık gerçek hata veriyor.
+      console.error("Kayıt Hatası:", error);
+      alert("⚠️ Kayıt işlemi başarısız! Lütfen sunucu bağlantısını kontrol edin veya e-postanın kullanımda olmadığını doğrulayın.");
     }
   };
 

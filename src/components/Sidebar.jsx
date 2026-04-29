@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Sidebar() {
-  // Üzerine gelindiğinde menünün açılması için state
   const [isExpanded, setIsExpanded] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate(); // Yönlendirme için ekledik
 
   const menuItems = [
     { name: 'Ana Sayfa', icon: '🏠', path: '/dashboard' },
@@ -13,8 +13,16 @@ export default function Sidebar() {
     { name: 'Projeler', icon: '📁', path: '/dashboard/projeler' },
     { name: 'Abonelikler', icon: '💳', path: '/dashboard/abonelikler' },
     { name: 'Favoriler', icon: '⭐', path: '/dashboard/favoriler' },
-    { name: 'Çöp Kutusu', icon: '🗑️', path: '/dashboard/cop-kutusu' },
+    { name: 'Çöp Kutusu', icon: '🗑️', path: '/dashboard/trash' },
   ];
+
+  // ÇIKIŞ YAP FONKSİYONU
+  const handleLogout = () => {
+    // 1. Varsa sistemdeki token veya kullanıcı verilerini temizle
+    localStorage.clear(); 
+    // 2. Kullanıcıyı Login sayfasına fırlat
+    navigate('/login');
+  };
 
   return (
     <aside 
@@ -40,7 +48,7 @@ export default function Sidebar() {
               key={item.name}
               to={item.path} 
               className={`flex items-center px-3 py-3 rounded-xl transition-all duration-200 group ${
-                isActive ? 'bg-blue-600 shadow-md shadow-blue-900/50' : 'hover:bg-gray-800'
+                isActive ? 'bg-blue-600 shadow-md shadow-blue-900/50' : 'hover:bg-gray-800 text-gray-400 hover:text-white'
               }`}
             >
               <span className="text-xl group-hover:scale-110 transition-transform">{item.icon}</span>
@@ -51,6 +59,19 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* EN ALTA ÇIKIŞ YAP BUTONU EKLENDİ */}
+      <div className="p-3 border-t border-gray-800">
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center px-3 py-3 rounded-xl transition-all duration-200 hover:bg-red-600/10 text-red-400 hover:text-red-500 group"
+        >
+          <span className="text-xl group-hover:rotate-12 transition-transform">🚪</span>
+          <span className={`ml-4 font-black uppercase tracking-widest text-[11px] transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 overflow-hidden w-0'}`}>
+            Çıkış Yap
+          </span>
+        </button>
+      </div>
     </aside>
   );
 }
