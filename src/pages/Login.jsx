@@ -5,19 +5,20 @@ import axios from 'axios';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState(''); // Hata mesajı state'i
+  const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setErrorMsg(''); // Her denemede hatayı sıfırla
+    setErrorMsg(''); 
 
     try {
-      // GERÇEK BACKEND İSTEĞİ
-      const response = await axios.post('http://localhost:8080/api/users/login', { email, password });
+      // 1. NGORK TÜNELİNE İSTEK VE LOCALSTORAGE KAYDI
+      const response = await axios.post('https://dentist-antelope-vowel.ngrok-free.dev/api/users/login', { email, password });
       
       if (response.status === 200) {
-        localStorage.setItem("userId", response.data.id || "1"); 
+        // Ensar'ın gönderdiği id'yi yakalayıp localStorage'a güvenle yazıyoruz
+        localStorage.setItem("userId", response.data.id); 
         navigate('/dashboard');
       }
     } catch (error) {
@@ -34,7 +35,6 @@ export default function Login() {
           <p className="text-[#a3a3a3] mt-2 text-sm">Vizyonunu gerçeğe dönüştürmeye hazır mısın?</p>
         </div>
 
-        {/* HATA MESAJI UI (Alert yerine bu çıkacak) */}
         {errorMsg && (
           <div className="mb-6 p-4 bg-[#2a1215] border border-[#5c1a1a] rounded-md text-[#ff6b6b] text-sm flex items-center gap-3">
             <i className="fa-solid fa-triangle-exclamation"></i>
