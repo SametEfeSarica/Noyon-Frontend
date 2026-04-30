@@ -1,88 +1,50 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axiosInstance from '../api/axiosInstance';
-import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { setIsLoggedIn } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    try {
-      // 1. ADIM: Backend'e isteği gönder
-      const response = await axiosInstance.post('/api/auth/login', { email, password });
-      
-      // 2. ADIM: Sadece 200 OK dönerse işlemleri yap
-      if (response.status === 200) {
-        // Samet'in uyarısı: UserId'yi mutlaka kaydet
-        // response.data.id backend'den gelen id olmalı
-        localStorage.setItem("userId", response.data.id);
-        
-        // Genel kullanıcı verisini de saklamak gerekebilir (isim vb. için)
-        localStorage.setItem('user', JSON.stringify(response.data));
-        
-        setIsLoggedIn(true);
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error("Bağlantı Hatası:", error);
-      
-      // Hata olduğunda uyarı veriyoruz ve içeri ASLA almıyoruz
-      alert("⚠️ NOYON SİSTEM UYARISI: Sunucuya ulaşılamıyor veya bilgiler hatalı! Lütfen backend'in çalıştığından emin ol.");
-    }
+    // Simülasyon: Gerçekte backend'e istek atılacak
+    localStorage.setItem("userId", "1"); 
+    navigate('/dashboard');
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-10 border border-gray-200">
+    <div className="min-h-screen bg-[#191919] flex items-center justify-center font-sans p-4">
+      <div className="max-w-md w-full bg-[#202020] p-10 rounded-xl border border-[#2f2f2f] shadow-2xl">
         <div className="text-center mb-10">
-          <h2 className="text-4xl font-black text-gray-900 mb-3 tracking-tighter italic">NOYON</h2>
-          <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Sistem Girişi</p>
+          <h1 className="text-3xl font-black text-white italic tracking-widest uppercase">NOYON</h1>
+          <p className="text-[#a3a3a3] mt-2 text-sm">Vizyonunu gerçeğe dönüştürmeye hazır mısın?</p>
         </div>
-        
+
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Kurumsal E-posta</label>
+            <label className="block text-xs font-bold text-[#737373] uppercase tracking-wider mb-2">E-Posta Adresi</label>
             <input 
-              type="email" 
-              required
-              className="w-full px-5 py-4 border-0 rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all text-gray-800 bg-gray-50 shadow-inner"
-              placeholder="emrah@noyon.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-[#191919] border border-[#3f3f3f] text-white rounded-md py-3 px-4 focus:outline-none focus:border-blue-500 transition-colors"
+              placeholder="isim@mail.com"
             />
           </div>
-
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Şifre</label>
+            <label className="block text-xs font-bold text-[#737373] uppercase tracking-wider mb-2">Şifre</label>
             <input 
-              type="password" 
-              required
-              className="w-full px-5 py-4 border-0 rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all text-gray-800 bg-gray-50 shadow-inner"
+              type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-[#191919] border border-[#3f3f3f] text-white rounded-md py-3 px-4 focus:outline-none focus:border-blue-500 transition-colors"
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-
-          <button 
-            type="submit" 
-            className="w-full bg-gray-900 hover:bg-black text-white font-black py-4 px-4 rounded-xl transition-all duration-300 transform hover:-translate-y-1 shadow-lg active:scale-95"
-          >
-            GİRİŞ YAP
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition-all shadow-lg">
+            Giriş Yap
           </button>
         </form>
 
-        <div className="mt-10 text-center border-t border-gray-100 pt-6">
-          <p className="text-sm text-gray-400">
-            Hesabınız yok mu?{' '}
-            <Link to="/register" className="font-bold text-gray-900 hover:text-gray-600 underline decoration-2 underline-offset-4">
-              Kayıt Olun
-            </Link>
-          </p>
+        <div className="mt-8 text-center border-t border-[#2f2f2f] pt-6">
+          <p className="text-[#a3a3a3] text-sm">Hesabın yok mu? <Link to="/register" className="text-blue-400 hover:underline">Şimdi Kaydol</Link></p>
         </div>
       </div>
     </div>
