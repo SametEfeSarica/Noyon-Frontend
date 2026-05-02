@@ -3,10 +3,9 @@ import Sidebar from './Sidebar';
 
 export default function DashboardLayout() {
   return (
-    // bg-gray-50 YERİNE bg-[#191919] GETİRİLDİ. TAM KARANLIK TEMA!
-    <div className="flex min-h-screen bg-[#191919] font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-background font-sans overflow-hidden selection:bg-primary/30 selection:text-primary">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto h-screen relative custom-scrollbar">
+      <main className="flex-1 h-full overflow-y-auto relative custom-scrollbar scroll-smooth">
         <Outlet />
       </main>
     </div>

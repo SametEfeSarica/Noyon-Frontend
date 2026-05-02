@@ -1,133 +1,192 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import api from '../api/axiosInstance';
+import { useAuth } from '../context/AuthContext';
+
+// --- PREMIUM SKELETON COMPONENT ---
+const Skeleton = ({ className }) => (
+  <div className={`animate-pulse bg-zinc-800/60 rounded-md ${className}`}></div>
+);
 
 export default function Calendar() {
-  const [tasks, setTasks] = useState([]);
-  const [subscriptions, setSubscriptions] = useState([]);
-
-  // Mevcut ay bilgilerini hesaplamak için basit bir yapı
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0: Pazar, 1: Pazartesi vs.
-  
-  const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-  const dayNames = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- API / VERİ ÇEKME ---
+  const fetchEvents = async () => {
+    try {
+      setIsLoading(true);
+      // Gerçek senaryoda backend'den o aya ait takvim verilerini çekeceğiz
+      // const response = await api.get(`/api/calendar/events?year=${currentDate.getFullYear()}&month=${currentDate.getMonth() + 1}`);
+      // setEvents(response.data);
+
+      // Backend tam hazır olana kadar arayüzü dolu göstermek için simülasyon:
+      setTimeout(() => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        setEvents([
+          { id: 1, title: 'Proje Teslimi', date: new Date(year, month, 15), type: 'task', color: 'bg-blue-500', icon: 'fa-check' },
+          { id: 2, title: 'Netflix Yenileme', date: new Date(year, month, 22), type: 'sub', color: 'bg-purple-500', icon: 'fa-credit-card' },
+          { id: 3, title: 'Ekip Toplantısı', date: new Date(year, month, 5), type: 'event', color: 'bg-emerald-500', icon: 'fa-calendar' },
+          { id: 4, title: 'Fatura Ödemesi', date: new Date(year, month, 5), type: 'sub', color: 'bg-purple-500', icon: 'fa-wallet' },
+          { id: 5, title: 'Spora Başla', date: new Date(year, month, 28), type: 'event', color: 'bg-yellow-500', icon: 'fa-dumbbell' },
+        ]);
+        setIsLoading(false);
+      }, 500);
+    } catch (error) {
+      console.error("Takvim verileri çekilemedi:", error);
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // API İstekleri (Backend hazır olduğunda burası çalışacak)
-    const fetchCalendarData = async () => {
-      try {
-        const userId = localStorage.getItem("userId") || 1;
-        const [tasksRes, subsRes] = await Promise.all([
-          axios.get(`http://localhost:8080/api/tasks/active?userId=${userId}`),
-          axios.get(`http://localhost:8080/api/subscriptions?userId=${userId}`)
-        ]);
-        
-        // Şimdilik gelen veriyi state'e atıyoruz. 
-        // Not: Gerçek veriler geldiğinde tarih eşleştirmesi için map'leme yapılmalı.
-        setTasks(tasksRes.data);
-        setSubscriptions(subsRes.data);
-      } catch (error) {
-        console.log("Backend bağlantısı kurulamadı, statik veriler gösteriliyor.");
-        // Test amaçlı sahte veriler (Backend gelene kadar UI görebilmen için)
-        setTasks([{ id: 1, title: 'UI Tasarımı', day: 15 }]);
-        setSubscriptions([{ id: 1, title: 'Netflix', day: 22 }]);
-      }
-    };
+    if (user) fetchEvents();
+  }, [user, currentDate]);
 
-    fetchCalendarData();
-  }, []);
+  // --- TAKVİM HESAPLAMALARI ---
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+  // Pazartesiyi haftanın ilk günü yapıyoruz (JS'de 0 Pazar'dır)
+  const startDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+  const dayNames = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
-  // Takvim ızgarasını oluştur
-  const renderCalendarDays = () => {
-    const days = [];
-    // Pazartesi'den başlatmak için offset (Pazar 0 olduğu için)
-    const offset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  const goToday = () => setCurrentDate(new Date());
 
-    // Boş kutular (önceki ayın günleri)
-    for (let i = 0; i < offset; i++) {
-      days.push(<div key={`empty-${i}`} className="min-h-[120px] bg-[#191919] border border-[#2f2f2f] opacity-50"></div>);
-    }
+  const isToday = (day) => {
+    const today = new Date();
+    return day === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
+  };
 
-    // Ayın günleri
-    for (let d = 1; d <= daysInMonth; d++) {
-      // Bu güne ait görev veya abonelik var mı kontrol et
-      const dayTasks = tasks.filter(t => t.day === d);
-      const daySubs = subscriptions.filter(s => s.day === d);
-      const isToday = new Date().getDate() === d && new Date().getMonth() === month && new Date().getFullYear() === year;
-
-      days.push(
-        <div key={d} className={`min-h-[120px] bg-[#202020] border border-[#2f2f2f] p-2 hover:bg-[#252525] transition-colors relative ${isToday ? 'ring-1 ring-blue-500' : ''}`}>
-          <span className={`text-sm font-bold ${isToday ? 'text-blue-400' : 'text-[#737373]'}`}>{d}</span>
-          
-          <div className="mt-2 space-y-1">
-            {/* Görev Etiketleri */}
-            {dayTasks.map(task => (
-              <div key={`task-${task.id}`} className="bg-[#122a4a] border border-[#1a3a6a] text-[#6b9dff] text-xs px-2 py-1 rounded-md flex items-center gap-2 truncate">
-                <i className="fa-solid fa-list-check"></i>
-                <span className="truncate">{task.title}</span>
-              </div>
-            ))}
-
-            {/* Abonelik Etiketleri */}
-            {daySubs.map(sub => (
-              <div key={`sub-${sub.id}`} className="bg-[#2a1a2f] border border-[#4a2a50] text-[#c96bff] text-xs px-2 py-1 rounded-md flex items-center gap-2 truncate">
-                <i className="fa-solid fa-credit-card"></i>
-                <span className="truncate">{sub.title}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    return days;
+  const getEventsForDay = (day) => {
+    return events.filter(e => e.date.getDate() === day);
   };
 
   return (
-    <div className="p-8 h-full bg-[#191919] font-sans text-[#D4D4D4]">
-      {/* Üst Kısım: Başlık ve Kontroller */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <i className="fa-regular fa-calendar text-[#737373]"></i>
-            Takvim
-          </h1>
-          <p className="text-[#737373] text-sm mt-1">Görevlerinizi ve aboneliklerinizi buradan takip edin.</p>
+    <div className="p-6 md:p-10 min-h-screen bg-background font-sans text-zinc-200 flex flex-col h-screen overflow-hidden">
+      
+      {/* HEADER: Başlık ve Kontroller */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 text-2xl border border-orange-500/20 shadow-sm">
+            <i className="fa-regular fa-calendar-days"></i>
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-white tracking-tight flex items-baseline gap-2">
+              {monthNames[currentDate.getMonth()]} 
+              <span className="text-xl font-bold text-muted">{currentDate.getFullYear()}</span>
+            </h1>
+          </div>
         </div>
         
-        <div className="flex items-center gap-4 bg-[#202020] p-1 border border-[#2f2f2f] rounded-md shadow-sm">
-          <button onClick={prevMonth} className="px-3 py-2 text-[#a3a3a3] hover:text-white hover:bg-[#2f2f2f] rounded-md transition-colors">
-            <i className="fa-solid fa-chevron-left"></i>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <button 
+            onClick={goToday}
+            className="px-4 py-2 bg-surface hover:bg-zinc-800 border border-border text-sm font-bold text-zinc-300 rounded-lg transition-colors shadow-sm"
+          >
+            Bugün
           </button>
-          <span className="w-32 text-center font-semibold text-white tracking-wide">
-            {monthNames[month]} {year}
-          </span>
-          <button onClick={nextMonth} className="px-3 py-2 text-[#a3a3a3] hover:text-white hover:bg-[#2f2f2f] rounded-md transition-colors">
-            <i className="fa-solid fa-chevron-right"></i>
-          </button>
+          <div className="flex items-center bg-surface border border-border rounded-lg p-1 shadow-sm">
+            <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-zinc-800 text-muted hover:text-white transition-colors">
+              <i className="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <div className="w-px h-4 bg-border mx-1"></div>
+            <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-zinc-800 text-muted hover:text-white transition-colors">
+              <i className="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => alert("Yeni etkinlik ekleme modalı açılacak")}
+            className="ml-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-md"
+          >
+            <i className="fa-solid fa-plus"></i> Ekle
+          </motion.button>
         </div>
       </div>
 
-      {/* Takvim Izgarası */}
-      <div className="bg-[#202020] rounded-md border border-[#2f2f2f] overflow-hidden shadow-lg">
-        {/* Gün İsimleri Header */}
-        <div className="grid grid-cols-7 bg-[#1c1c1c] border-b border-[#2f2f2f]">
-          {dayNames.map(day => (
-            <div key={day} className="py-3 text-center text-xs font-bold text-[#737373] uppercase tracking-wider">
+      {/* TAKVİM GRID ALANI */}
+      <div className="flex-1 bg-surface border border-border rounded-2xl overflow-hidden flex flex-col shadow-sm">
+        
+        {/* Haftanın Günleri (Başlık Satırı) */}
+        <div className="grid grid-cols-7 border-b border-border bg-zinc-900/50">
+          {dayNames.map((day, i) => (
+            <div key={day} className={`py-3 text-center text-xs font-bold uppercase tracking-wider ${i >= 5 ? 'text-zinc-500' : 'text-zinc-400'}`}>
               {day}
             </div>
           ))}
         </div>
-        
-        {/* Gün Kutuları */}
-        <div className="grid grid-cols-7">
-          {renderCalendarDays()}
+
+        {/* Günler (Hücreler) */}
+        <div className="flex-1 grid grid-cols-7 grid-rows-5 overflow-hidden bg-zinc-900/20">
+          {isLoading ? (
+             [...Array(35)].map((_, i) => (
+               <div key={`skel-${i}`} className="border-r border-b border-border/50 p-2">
+                 <Skeleton className="w-6 h-6 rounded-full mb-2" />
+                 <Skeleton className="w-full h-4 rounded mt-1" />
+               </div>
+             ))
+          ) : (
+            <>
+              {/* Ayın ilk gününden önceki boşluklar */}
+              {[...Array(startDay)].map((_, i) => (
+                <div key={`empty-${i}`} className="border-r border-b border-border/50 bg-zinc-900/40 p-2 opacity-50"></div>
+              ))}
+
+              {/* Gerçek Günler */}
+              {[...Array(daysInMonth)].map((_, i) => {
+                const day = i + 1;
+                const dayEvents = getEventsForDay(day);
+                const isCurrentDay = isToday(day);
+
+                return (
+                  <div key={day} className={`border-r border-b border-border/50 p-2 flex flex-col transition-colors hover:bg-zinc-800/30 group ${isCurrentDay ? 'bg-orange-500/5' : ''}`}>
+                    
+                    {/* Gün Numarası */}
+                    <div className="flex justify-between items-start mb-1">
+                      <div className={`w-7 h-7 flex items-center justify-center text-xs font-bold rounded-full ${
+                        isCurrentDay ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' : 'text-zinc-400 group-hover:text-white transition-colors'
+                      }`}>
+                        {day}
+                      </div>
+                    </div>
+
+                    {/* Etkinlik Rozetleri */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+                      {dayEvents.map(ev => (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          key={ev.id} 
+                          title={ev.title}
+                          className={`text-[10px] font-bold px-1.5 py-1 rounded border flex items-center gap-1.5 cursor-pointer hover:brightness-125 transition-all truncate
+                            ${ev.color === 'bg-blue-500' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : ''}
+                            ${ev.color === 'bg-purple-500' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : ''}
+                            ${ev.color === 'bg-emerald-500' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : ''}
+                            ${ev.color === 'bg-yellow-500' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : ''}
+                          `}
+                        >
+                          <i className={`fa-solid ${ev.icon} text-[8px]`}></i>
+                          <span className="truncate">{ev.title}</span>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Ayın son gününden sonraki boşluklar (Grid'i tamamlamak için) */}
+              {[...Array(42 - (startDay + daysInMonth))].slice(0, 35 - (startDay + daysInMonth) >= 0 ? 35 - (startDay + daysInMonth) : 42 - (startDay + daysInMonth)).map((_, i) => (
+                <div key={`empty-end-${i}`} className="border-r border-b border-border/50 bg-zinc-900/40 p-2 opacity-50"></div>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </div>

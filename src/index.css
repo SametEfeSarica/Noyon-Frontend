@@ -4,21 +4,30 @@
 
 @layer base {
   body {
-    @apply bg-gray-900 text-gray-100;
+    @apply bg-background text-zinc-100 font-sans antialiased selection:bg-primary/30 selection:text-primary;
   }
 }
 
-/* Şık Scrollbar Tasarımı (Custom Scrollbar) */
+/* Premium, zarif ve ince Scrollbar tasarımı */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
+  @apply bg-zinc-700/50 rounded-full transition-colors;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500;
+  @apply bg-zinc-500/80;
+}
+
+/* Tüm input ve butonlardan varsayılan tarayıcı dış çizgilerini kaldırır */
+*:focus-visible {
+  outline: 2px solid #27272a;
+  outline-offset: 2px;
 }

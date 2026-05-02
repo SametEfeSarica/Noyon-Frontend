@@ -1,28 +1,28 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState(''); // Hata mesajı state'i
+  const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setErrorMsg(''); // Her denemede hatayı sıfırla
+    setErrorMsg('');
+    setLoading(true);
 
     try {
-      // GERÇEK BACKEND İSTEĞİ
-      const response = await axios.post('http://localhost:8080/api/users/login', { email, password });
-      
-      if (response.status === 200) {
-        localStorage.setItem("userId", response.data.id || "1"); 
-        navigate('/dashboard');
-      }
+      await login(email, password);
+      navigate('/dashboard');
     } catch (error) {
-      console.error("Giriş başarısız:", error);
-      setErrorMsg("E-posta veya şifre hatalı. Lütfen tekrar deneyin.");
+      const msg = error.response?.data?.message || 'E-posta veya şifre hatalı.';
+      setErrorMsg(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -34,39 +34,55 @@ export default function Login() {
           <p className="text-[#a3a3a3] mt-2 text-sm">Vizyonunu gerçeğe dönüştürmeye hazır mısın?</p>
         </div>
 
-        {/* HATA MESAJI UI (Alert yerine bu çıkacak) */}
         {errorMsg && (
-          <div className="mb-6 p-4 bg-[#2a1215] border border-[#5c1a1a] rounded-md text-[#ff6b6b] text-sm flex items-center gap-3">
-            <i className="fa-solid fa-triangle-exclamation"></i>
-            <span>{errorMsg}</span>
+          <div className="mb-6 p-4 bg-[#2a1215] border border-[#5c1a1a] rounded-md text-[#ff6b6b] text-sm">
+            {errorMsg}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-xs font-bold text-[#737373] uppercase tracking-wider mb-2">E-Posta Adresi</label>
-            <input 
-              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+            <label className="block text-xs font-bold text-[#737373] uppercase tracking-wider mb-2">
+              E-Posta Adresi
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-[#191919] border border-[#3f3f3f] text-[#D4D4D4] rounded-md py-3 px-4 focus:outline-none focus:border-blue-500 transition-colors"
               placeholder="isim@mail.com"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-[#737373] uppercase tracking-wider mb-2">Şifre</label>
-            <input 
-              type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+            <label className="block text-xs font-bold text-[#737373] uppercase tracking-wider mb-2">
+              Şifre
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-[#191919] border border-[#3f3f3f] text-[#D4D4D4] rounded-md py-3 px-4 focus:outline-none focus:border-blue-500 transition-colors"
               placeholder="••••••••"
             />
           </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition-all shadow-lg flex justify-center items-center gap-2">
-            <span>Giriş Yap</span>
-            <i className="fa-solid fa-arrow-right-to-bracket text-sm"></i>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold py-3 rounded-md transition-all shadow-lg"
+          >
+            {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
           </button>
         </form>
 
         <div className="mt-8 text-center border-t border-[#2f2f2f] pt-6">
-          <p className="text-[#a3a3a3] text-sm">Hesabın yok mu? <Link to="/register" className="text-blue-400 hover:text-blue-300 transition-colors">Şimdi Kaydol</Link></p>
+          <p className="text-[#a3a3a3] text-sm">
+            Hesabın yok mu?{' '}
+            <Link to="/register" className="text-blue-400 hover:text-blue-300">
+              Şimdi Kaydol
+            </Link>
+          </p>
         </div>
       </div>
     </div>

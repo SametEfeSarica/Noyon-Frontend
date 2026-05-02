@@ -1,28 +1,83 @@
 import axios from 'axios';
 
-// Temel bağlantı ayarı
-const axiosInstance = axios.create({
-  baseURL: 'http://localhost:8080',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// NETWORK KALKANI (Interceptor)
-axiosInstance.interceptors.response.use(
-  (response) => {
-    // İşlem başarılıysa aynen devam et
-    return response;
-  },
-  (error) => {
-    // Backend'den gelen özel hata mesajını yakala
-    const errorMessage = error.response?.data?.message || "Sunucuya ulaşılamıyor veya beklenmeyen bir hata oluştu.";
-    
-    // Şık bir uyarı bas (Sayfayı çökertmeden)
-    alert(`⚠️ NOYON SİSTEM UYARISI:\n\n${errorMessage}`);
-    
+// İstek Yollayıcı (Interceptor) — Her isteğin kafasına JWT ekler
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue = [];
+};
+
+// Cevap Yakalayıcı — 401 (Yetkisiz) dönerse token'ı çaktırmadan yeniler
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        // Refresh token da yoksa mecburen çıkış yap ve login'e at
+        localStorage.clear();
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/api/auth/refresh`,
+          null,
+          { headers: { 'X-Refresh-Token': refreshToken } }
+        );
+
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', newRefreshToken);
+
+        processQueue(null, accessToken);
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        localStorage.clear();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
     return Promise.reject(error);
   }
 );
 
-export default axiosInstance;
+export default api;
