@@ -548,81 +548,6 @@ const EventModal = ({ date, onClose, onSave }) => {
   );
 };
 
-// ─── Mini Month Navigator (sidebar) ──────────────────────────────────────────
-const MiniMonth = memo(({ year, month, selectedDate, onDayClick }) => {
-  const [cur, setCur] = useState({ year, month });
-  useEffect(() => { setCur({ year, month }); }, [year, month]);
-
-  const cells = getMonthGrid(cur.year, cur.month);
-  const weeks = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-
-  return (
-    <div style={{ padding: '12px 14px 10px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 650, color: '#9090a0', letterSpacing: '-0.01em' }}>
-          {MONTHS[cur.month]} {cur.year}
-        </span>
-        <div style={{ display: 'flex', gap: 2 }}>
-          {[
-            { icon: <IC.ChevLeft />, fn: () => setCur(c => ({ ...c, month: c.month === 0 ? 11 : c.month - 1, year: c.month === 0 ? c.year - 1 : c.year })) },
-            { icon: <IC.ChevRight />, fn: () => setCur(c => ({ ...c, month: c.month === 11 ? 0 : c.month + 1, year: c.month === 11 ? c.year + 1 : c.year })) },
-          ].map((b, i) => (
-            <button key={i} onClick={b.fn} style={{ width: 22, height: 22, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#45455a', transition: 'all 0.12s ease' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#45455a'; }}>
-              {b.icon}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1, marginBottom: 4 }}>
-        {['P','S','Ç','P','C','C','P'].map((d, i) => (
-          <div key={i} style={{ textAlign: 'center', fontSize: 10, fontWeight: 650, color: '#35354a', padding: '2px 0' }}>{d}</div>
-        ))}
-      </div>
-      {weeks.map((week, wi) => (
-        <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1 }}>
-          {week.map((cell, ci) => {
-            const today = isToday(cell.year, cell.month, cell.day);
-            const sel   = selectedDate && isSameDay(new Date(cell.year, cell.month, cell.day), selectedDate);
-            return (
-              <button key={ci} onClick={() => onDayClick(new Date(cell.year, cell.month, cell.day))}
-                style={{
-                  width: '100%', aspectRatio: '1', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0,
-                  fontSize: 11, fontWeight: today || sel ? 700 : 400,
-                  background: today ? '#6c6af6' : sel ? 'rgba(108,106,246,0.2)' : 'transparent',
-                  color: today ? '#fff' : sel ? '#9d9cf8' : cell.overflow ? '#2a2a36' : '#6060708',
-                  transition: 'all 0.1s ease',
-                }}
-                onMouseEnter={e => { if (!today && !sel) { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}}
-                onMouseLeave={e => { if (!today && !sel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = cell.overflow ? '#2a2a36' : '#6060708'; }}}
-              >
-                {cell.day}
-              </button>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-});
-
-// ─── Legend ───────────────────────────────────────────────────────────────────
-const Legend = () => (
-  <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e28' }}>
-    <p style={{ margin: '0 0 9px', fontSize: 10.5, fontWeight: 650, color: '#35354a', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-      Türler
-    </p>
-    {Object.entries(EVENT_TYPES).map(([k, v]) => (
-      <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: v.color, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, color: '#55556a', fontWeight: 500 }}>{v.label}</span>
-      </div>
-    ))}
-  </div>
-);
-
 // ─── Main Calendar Page ───────────────────────────────────────────────────────
 export default function Calendar() {
   useEffect(() => { injectStyles(); }, []);
@@ -758,73 +683,12 @@ export default function Calendar() {
   const weeks = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
-  // Stats
-  const monthStr = `${curYear}-${String(curMonth + 1).padStart(2,'0')}`;
-  const monthEvents   = filteredEvents.filter(ev => ev.date?.startsWith(monthStr));
-  const taskCount     = monthEvents.filter(ev => ev.type === 'task').length;
-  const subCount      = monthEvents.filter(ev => ev.type === 'subscription').length;
-  const totalPayment  = monthEvents.filter(ev => ev.amount).reduce((s, ev) => s + parseFloat(ev.amount || 0), 0);
-
   return (
     <div style={{
       display: 'flex', height: '100%', fontFamily: FONT,
       WebkitFontSmoothing: 'antialiased', color: '#d0d0e0',
       background: '#0e0e14', overflow: 'hidden',
     }}>
-
-      {/* ── Left Sidebar ─────────────────────────────────────────────────────── */}
-      <div style={{
-        width: 210, flexShrink: 0,
-        background: '#13131a', borderRight: '1px solid #1e1e28',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      }}>
-        {/* New event button */}
-        <div style={{ padding: '14px 14px 10px' }}>
-          <button
-            onClick={() => { setModalDate(selectedDate || today); setShowModal(true); }}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              width: '100%', padding: '9px 0', borderRadius: 10,
-              border: '1px solid rgba(108,106,246,0.3)',
-              background: 'rgba(108,106,246,0.1)', color: '#9d9cf8',
-              cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: FONT,
-              transition: 'all 0.13s ease',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(108,106,246,0.18)'; e.currentTarget.style.borderColor = 'rgba(108,106,246,0.45)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(108,106,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(108,106,246,0.3)'; }}
-          >
-            <IC.Plus /> Etkinlik Ekle
-          </button>
-        </div>
-
-        {/* Mini month */}
-        <MiniMonth
-          year={curYear} month={curMonth}
-          selectedDate={selectedDate}
-          onDayClick={(d) => { setSelected(d); setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); if (!panelOpen) setPanelOpen(true); }}
-        />
-
-        {/* Legend */}
-        <div style={{ flex: 1 }} />
-        <Legend />
-
-        {/* Month stats */}
-        <div style={{ padding: '10px 14px 14px', borderTop: '1px solid #1e1e28' }}>
-          <p style={{ margin: '0 0 8px', fontSize: 10.5, fontWeight: 650, color: '#35354a', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-            {MONTHS[curMonth]} Özeti
-          </p>
-          {[
-            { label: 'Görev', val: taskCount,                 color: '#6c6af6' },
-            { label: 'Abonelik', val: subCount,               color: '#a855f7' },
-            { label: 'Toplam Ödeme', val: `₺${totalPayment.toFixed(0)}`, color: '#10b981' },
-          ].map(({ label, val, color }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontSize: 12, color: '#45455a' }}>{label}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color }}>{val}</span>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* ── Main area ────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>

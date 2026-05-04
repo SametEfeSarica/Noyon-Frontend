@@ -21,11 +21,12 @@ const icons = {
   plus:        "M12 5v14M5 12h14",
   star:        "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
   x:           "M18 6L6 18M6 6l12 12",
+  check:       "M20 6L9 17l-5-5",
 };
 
 // ── Sabit Kategoriler ─────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { id: "all",         label: "All Books",    color: "#a78bfa" },
+  { id: "all",         label: "Tümü",         color: "#a78bfa" },
   { id: "design",      label: "Design",       color: "#34d399" },
   { id: "engineering", label: "Engineering",  color: "#60a5fa" },
   { id: "productivity",label: "Productivity", color: "#f59e0b" },
@@ -70,12 +71,10 @@ function AddBookModal({ onClose, onAdd }) {
     setLoading(true);
 
     try {
-      // Sayfa verisinden yüzdelik dilimi (progress) hesapla
       const totalP = parseInt(form.pages) || 1;
       const currP = parseInt(form.currentPage) || 0;
       const progress = Math.min(100, Math.max(0, Math.round((currP / totalP) * 100)));
 
-      // API Payload
       const payload = {
         title: form.title,
         author: form.author,
@@ -94,8 +93,8 @@ function AddBookModal({ onClose, onAdd }) {
       };
 
       const res = await api.post("/api/library", payload);
-      onAdd(res.data.data || res.data); // Yeni kitabı listeye ekle
-      onClose(); // Modalı kapat
+      onAdd(res.data.data || res.data);
+      onClose();
     } catch (err) {
       console.error("Kitap eklenemedi:", err);
       alert("Kitap eklenirken bir hata oluştu!");
@@ -418,37 +417,6 @@ function BookCard({ book, isFavorite, onToggleFavorite, view }) {
   );
 }
 
-// ── CategoryFolder ────────────────────────────────────────────────────────────
-function CategoryFolder({ cat, count, isActive, onClick }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 w-full text-left"
-      style={{
-        background: isActive ? cat.color + "18" : hov ? "#161622" : "transparent",
-        color:      isActive ? cat.color : hov ? "#d1d5db" : "#6b7280",
-        border:     `1px solid ${isActive ? cat.color + "33" : "transparent"}`,
-      }}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24"
-        fill={isActive ? cat.color + "33" : "none"}
-        stroke={isActive ? cat.color : "currentColor"}
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d={icons.folder} />
-      </svg>
-      <span className="flex-1 truncate">{cat.label}</span>
-      <span className="text-xs px-1.5 py-0.5 rounded-md"
-        style={{ background: isActive ? cat.color + "22" : "#1e1e2c",
-          color: isActive ? cat.color : "#4b5563" }}>
-        {count ?? 0}
-      </span>
-    </button>
-  );
-}
-
 // ── ShelfRow (draggable) ──────────────────────────────────────────────────────
 function ShelfRow({ books, favorites, onToggleFavorite }) {
   const ref        = useRef(null);
@@ -553,13 +521,6 @@ export default function Library() {
 
   const safeBooks = books || [];
 
-  const categoryCounts = CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = cat.id === "all"
-      ? safeBooks.length
-      : safeBooks.filter(b => b.category === cat.id).length;
-    return acc;
-  }, {});
-
   const filtered = safeBooks.filter(b => {
     if (activeCategory !== "all" && b.category !== activeCategory) return false;
     if (showFavOnly && !favorites.has(b.id)) return false;
@@ -577,8 +538,6 @@ export default function Library() {
     books: safeBooks.filter(b => b.category === cat.id),
   }));
 
-  const activeCat = CATEGORIES.find(c => c.id === activeCategory) || CATEGORIES[0];
-
   const totalProgress = safeBooks.length > 0
     ? Math.round(safeBooks.reduce((a, b) => a + (b.progress || 0), 0) / safeBooks.length)
     : 0;
@@ -591,274 +550,251 @@ export default function Library() {
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden"
+    <div className="flex flex-col h-screen w-full overflow-hidden"
       style={{ background: "#09090b", color: "#e5e7eb", fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* ── Sidebar ── */}
-      <aside className="w-56 flex-shrink-0 flex flex-col border-r"
-        style={{ background: "#09090b", borderColor: "#1e1e2c" }}>
-        <div className="px-4 pt-5 pb-3">
-          <div className="flex items-center gap-2 mb-5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-              <Icon d={icons.book} size={14} className="text-white" />
+      {/* ── Header ── */}
+      <header className="px-6 py-5 border-b flex-shrink-0" style={{ background: "#09090b", borderColor: "#1e1e2c" }}>
+        
+        {/* Üst Satır: Başlık ve Butonlar */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+              <Icon d={icons.book} size={20} className="text-white" />
             </div>
-            <span className="font-semibold text-sm text-white tracking-tight">Kütüphane</span>
+            <div>
+              <h1 className="text-lg font-bold text-white tracking-tight">Kütüphane</h1>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {safeBooks.length} kitap · {favorites.size} favori · {safeBooks.filter(b => b.progress === 100).length} tamamlanan
+              </p>
+            </div>
           </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Görünüm Değiştiriciler */}
+            <div className="flex items-center gap-1 bg-[#161622] p-1 rounded-lg border border-[#1e1e2c]">
+              {[
+                { id: "grid",  icon: icons.grid },
+                { id: "shelf", icon: icons.book },
+                { id: "list",  icon: icons.list },
+              ].map(v => (
+                <button key={v.id} onClick={() => setView(v.id)}
+                  className="w-7 h-7 flex items-center justify-center rounded-md transition-all duration-150"
+                  style={{
+                    background: view === v.id ? "#252535" : "transparent",
+                    color:      view === v.id ? "#d1d5db" : "#6b7280",
+                  }}>
+                  <Icon d={v.icon} size={14} />
+                </button>
+              ))}
+            </div>
 
-          <div className="relative mb-4">
-            <Icon d={icons.search} size={13}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600" />
+            {/* Yeni Ekle Butonu */}
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border border-transparent"
+              style={{ background: "#252535", color: "#9d9cf8", borderColor: "rgba(108,106,246,0.35)" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#1e1e28"; e.currentTarget.style.color = "#c0c0d0"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#252535"; e.currentTarget.style.color = "#9d9cf8"; }}>
+              <Icon d={icons.plus} size={14} />
+              Kitap Ekle
+            </button>
+          </div>
+        </div>
+
+        {/* Alt Satır: Arama ve Filtre Hapları (Pills) */}
+        <div className="flex items-center gap-3">
+          {/* Arama Input */}
+          <div className="relative w-64 flex-shrink-0">
+            <Icon d={icons.search} size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Kitap ara..."
-              className="w-full pl-8 pr-3 py-2 text-xs rounded-lg outline-none transition-all duration-200"
-              style={{ background: "#161622", border: "1px solid #1e1e2c", color: "#d1d5db" }}
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg outline-none transition-all duration-200"
+              style={{ background: "#111119", border: "1px solid #1e1e2c", color: "#d1d5db" }}
             />
             {search && (
-              <button onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400">
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400">
                 <Icon d={icons.x} size={12} />
               </button>
             )}
           </div>
 
-          <button
-            onClick={() => setShowFavOnly(f => !f)}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs transition-all duration-200 mb-4"
-            style={{
-              background: showFavOnly ? "#7c3aed22" : "transparent",
-              color:      showFavOnly ? "#a78bfa"   : "#6b7280",
-              border:     `1px solid ${showFavOnly ? "#7c3aed33" : "transparent"}`,
-            }}>
-            <svg width="13" height="13" viewBox="0 0 24 24"
-              fill={showFavOnly ? "#a78bfa" : "none"}
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d={icons.heartFill} />
-            </svg>
-            Favoriler
-            <span className="ml-auto text-xs px-1.5 py-0.5 rounded"
-              style={{ background: "#1e1e2c", color: "#6b7280" }}>
-              {favorites.size}
-            </span>
-          </button>
-
-          <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5 px-1">Kategoriler</p>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-4">
-          {CATEGORIES.map(cat => (
-            <CategoryFolder
-              key={cat.id} cat={cat}
-              count={categoryCounts[cat.id]}
-              isActive={activeCategory === cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-            />
-          ))}
-        </nav>
-
-        <div className="px-4 pb-5 pt-3 border-t" style={{ borderColor: "#1e1e2c" }}>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "Okunuyor", val: safeBooks.filter(b => b.progress > 0 && b.progress < 100).length },
-              { label: "Bitti",    val: safeBooks.filter(b => b.progress === 100).length },
-            ].map(s => (
-              <div key={s.label} className="rounded-lg p-2 text-center"
-                style={{ background: "#161622", border: "1px solid #1e1e2c" }}>
-                <div className="text-base font-bold text-white">{s.val}</div>
-                <div className="text-[10px] text-gray-500">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Main ── */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
-          style={{ background: "#09090b", borderColor: "#1e1e2c" }}>
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: activeCat.color }} />
-              <h1 className="text-base font-semibold text-white">{activeCat.label}</h1>
-              <span className="text-xs px-2 py-0.5 rounded-full"
-                style={{ background: activeCat.color + "18", color: activeCat.color }}>
-                {filtered.length} kitap
-              </span>
-            </div>
-            <p className="text-xs text-gray-600 mt-0.5">
-              {favorites.size} favori · {safeBooks.filter(b => b.progress === 100).length} tamamlanan
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {[
-              { id: "grid",  icon: icons.grid },
-              { id: "shelf", icon: icons.book },
-              { id: "list",  icon: icons.list },
-            ].map(v => (
-              <button key={v.id}
-                onClick={() => setView(v.id)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150"
-                style={{
-                  background: view === v.id ? "#1e1e2c" : "transparent",
-                  color:      view === v.id ? "#d1d5db" : "#4b5563",
-                  border:     `1px solid ${view === v.id ? "#2a2a3c" : "transparent"}`,
-                }}>
-                <Icon d={v.icon} size={14} />
-              </button>
-            ))}
+          {/* Kategori ve Favoriler Filtresi */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {CATEGORIES.map(cat => {
+              const isActive = activeCategory === cat.id;
+              return (
+                <button key={cat.id} onClick={() => setActiveCategory(cat.id)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
+                  style={{
+                    background: isActive ? "#252535" : "transparent",
+                    color: isActive ? "#9d9cf8" : "#9090a0",
+                    border: `1px solid ${isActive ? "rgba(108,106,246,0.35)" : "#252530"}`
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#1e1e28"; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
+                  {cat.label}
+                </button>
+              );
+            })}
+            
             <div className="w-px h-5 mx-1" style={{ background: "#1e1e2c" }} />
             
-            {/* Modal Açma Butonu */}
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150"
-              style={{ background: "#7c3aed", color: "#fff" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#6d28d9"}
-              onMouseLeave={e => e.currentTarget.style.background = "#7c3aed"}>
-              <Icon d={icons.plus} size={12} />
-              Kitap Ekle
+            <button onClick={() => setShowFavOnly(!showFavOnly)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
+              style={{
+                background: showFavOnly ? "#252535" : "transparent",
+                color: showFavOnly ? "#f43f5e" : "#9090a0",
+                border: `1px solid ${showFavOnly ? "rgba(244,63,94,0.35)" : "#252530"}`
+              }}
+              onMouseEnter={e => { if (!showFavOnly) e.currentTarget.style.background = "#1e1e28"; }}
+              onMouseLeave={e => { if (!showFavOnly) e.currentTarget.style.background = "transparent"; }}>
+              <Icon d={icons.heartFill} size={13} className={showFavOnly ? "text-rose-500" : "text-gray-500"} />
+              Favoriler
             </button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          {error && !loading && (
-            <div className="flex flex-col items-center justify-center h-64 text-red-400">
-              <Icon d={icons.x} size={32} className="mb-3 opacity-50" />
-              <p className="text-sm">{error}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="mt-3 text-xs px-3 py-1.5 rounded-lg"
-                style={{ background: "#1e1e2c", color: "#9ca3af" }}>
-                Yeniden Dene
+      {/* ── Main ── */}
+      <main className="flex-1 overflow-y-auto px-6 py-5">
+        {error && !loading && (
+          <div className="flex flex-col items-center justify-center h-64 text-red-400">
+            <Icon d={icons.x} size={32} className="mb-3 opacity-50" />
+            <p className="text-sm">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: "#1e1e2c", color: "#9ca3af" }}>
+              Yeniden Dene
+            </button>
+          </div>
+        )}
+
+        {loading && !error && (
+          view === "list" ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => <SkeletonList key={i} />)}
+            </div>
+          ) : (
+            <div className="grid gap-4"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
+              {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          )
+        )}
+
+        {!loading && !error && (
+          filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-600">
+              <Icon d={icons.book} size={32} className="mb-3 opacity-30" />
+              <p className="text-sm">Kitap bulunamadı</p>
+              <button 
+                onClick={() => setIsAddModalOpen(true)}
+                className="mt-3 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                + Yeni Kitap Ekle
               </button>
             </div>
-          )}
-
-          {loading && !error && (
-            view === "list" ? (
-              <div className="space-y-2">
-                {Array.from({ length: 6 }).map((_, i) => <SkeletonList key={i} />)}
-              </div>
-            ) : (
-              <div className="grid gap-4"
-                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
-                {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
-              </div>
-            )
-          )}
-
-          {!loading && !error && (
-            filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-600">
-                <Icon d={icons.book} size={32} className="mb-3 opacity-30" />
-                <p className="text-sm">Kitap bulunamadı</p>
-                <button 
-                  onClick={() => setIsAddModalOpen(true)}
-                  className="mt-3 text-sm text-purple-400 hover:text-purple-300 transition-colors">
-                  + Yeni Kitap Ekle
-                </button>
-              </div>
-            ) : view === "shelf" ? (
-              <div className="space-y-8">
-                {(shelfGroups || []).map(group => {
-                  const groupBooks = activeCategory === "all"
-                    ? (group.books || [])
-                    : group.id === activeCategory ? (group.books || []) : [];
-                  if (groupBooks.length === 0) return null;
-                  const visibleBooks = groupBooks.filter(b => {
-                    if (showFavOnly && !favorites.has(b.id)) return false;
-                    if (search) {
-                      const q = search.toLowerCase();
-                      if (!(b.title || "").toLowerCase().includes(q) &&
-                          !(b.author || "").toLowerCase().includes(q)) return false;
-                    }
-                    return true;
-                  });
-                  if (visibleBooks.length === 0) return null;
-                  return (
-                    <div key={group.id}>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full" style={{ background: group.color }} />
-                          <span className="text-sm font-medium text-gray-300">{group.label}</span>
-                          <span className="text-xs text-gray-600">({visibleBooks.length})</span>
-                        </div>
-                        <div className="flex-1 h-px" style={{ background: "#1e1e2c" }} />
-                        <span className="text-xs text-gray-600">kaydırarak incele →</span>
+          ) : view === "shelf" ? (
+            <div className="space-y-8">
+              {(shelfGroups || []).map(group => {
+                const groupBooks = activeCategory === "all"
+                  ? (group.books || [])
+                  : group.id === activeCategory ? (group.books || []) : [];
+                if (groupBooks.length === 0) return null;
+                const visibleBooks = groupBooks.filter(b => {
+                  if (showFavOnly && !favorites.has(b.id)) return false;
+                  if (search) {
+                    const q = search.toLowerCase();
+                    if (!(b.title || "").toLowerCase().includes(q) &&
+                        !(b.author || "").toLowerCase().includes(q)) return false;
+                  }
+                  return true;
+                });
+                if (visibleBooks.length === 0) return null;
+                return (
+                  <div key={group.id}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: group.color }} />
+                        <span className="text-sm font-medium text-gray-300">{group.label}</span>
+                        <span className="text-xs text-gray-600">({visibleBooks.length})</span>
                       </div>
-                      <div className="relative">
-                        <ShelfRow books={visibleBooks} favorites={favorites}
-                          onToggleFavorite={toggleFavorite} />
-                        <div className="h-2 rounded-b-sm mt-1"
-                          style={{ background: "linear-gradient(180deg, #1f1a14 0%, #110d08 100%)",
-                            border: "1px solid #2d1f14", boxShadow: "0 4px 12px #00000060" }} />
-                      </div>
+                      <div className="flex-1 h-px" style={{ background: "#1e1e2c" }} />
+                      <span className="text-xs text-gray-600">kaydırarak incele →</span>
                     </div>
-                  );
-                })}
-              </div>
-            ) : view === "list" ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-4 px-4 pb-2 border-b text-xs text-gray-600"
-                  style={{ borderColor: "#1e1e2c" }}>
-                  <div className="w-9 flex-shrink-0">Kapak</div>
-                  <div className="flex-1">Kitap Adı</div>
-                  <div className="w-20 text-right">Etiket</div>
-                  <div className="w-28 text-right">İlerleme</div>
-                  <div className="w-6"></div>
-                </div>
-                {(filtered || []).map(book => (
-                  <BookCard key={book.id} book={book}
-                    isFavorite={favorites.has(book.id)}
-                    onToggleFavorite={toggleFavorite}
-                    view="list" />
-                ))}
-              </div>
-            ) : (
-              <div className="grid gap-4"
-                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
-                {(filtered || []).map(book => (
-                  <BookCard key={book.id} book={book}
-                    isFavorite={favorites.has(book.id)}
-                    onToggleFavorite={toggleFavorite}
-                    view="grid" />
-                ))}
-              </div>
-            )
-          )}
-        </div>
-
-        <footer className="flex items-center gap-6 px-6 py-3 border-t flex-shrink-0"
-          style={{ background: "#09090b", borderColor: "#1e1e2c" }}>
-          {statsFooter.map((s, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full"
-                style={{ background: s.color || "#4b5563" }} />
-              <span className="text-xs text-gray-500">{s.label}:</span>
-              <span className="text-xs font-semibold"
-                style={{ color: s.color || "#9ca3af" }}>{s.val}</span>
+                    <div className="relative">
+                      <ShelfRow books={visibleBooks} favorites={favorites}
+                        onToggleFavorite={toggleFavorite} />
+                      <div className="h-2 rounded-b-sm mt-1"
+                        style={{ background: "linear-gradient(180deg, #1f1a14 0%, #110d08 100%)",
+                          border: "1px solid #2d1f14", boxShadow: "0 4px 12px #00000060" }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-          <div className="ml-auto">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">Genel İlerleme</span>
-              <div className="w-24 h-1.5 rounded-full bg-[#1e1e2c] overflow-hidden">
-                <div className="h-full rounded-full"
-                  style={{
-                    width: `${totalProgress}%`,
-                    background: "linear-gradient(90deg, #7c3aed, #4f46e5)",
-                  }} />
+          ) : view === "list" ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-4 px-4 pb-2 border-b text-xs text-gray-600"
+                style={{ borderColor: "#1e1e2c" }}>
+                <div className="w-9 flex-shrink-0">Kapak</div>
+                <div className="flex-1">Kitap Adı</div>
+                <div className="w-20 text-right">Etiket</div>
+                <div className="w-28 text-right">İlerleme</div>
+                <div className="w-6"></div>
               </div>
-              <span className="text-xs text-purple-400 font-medium">
-                {totalProgress}%
-              </span>
+              {(filtered || []).map(book => (
+                <BookCard key={book.id} book={book}
+                  isFavorite={favorites.has(book.id)}
+                  onToggleFavorite={toggleFavorite}
+                  view="list" />
+              ))}
             </div>
-          </div>
-        </footer>
+          ) : (
+            <div className="grid gap-4"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
+              {(filtered || []).map(book => (
+                <BookCard key={book.id} book={book}
+                  isFavorite={favorites.has(book.id)}
+                  onToggleFavorite={toggleFavorite}
+                  view="grid" />
+              ))}
+            </div>
+          )
+        )}
       </main>
+
+      {/* ── Footer ── */}
+      <footer className="flex items-center gap-6 px-6 py-3 border-t flex-shrink-0"
+        style={{ background: "#09090b", borderColor: "#1e1e2c" }}>
+        {statsFooter.map((s, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full"
+              style={{ background: s.color || "#4b5563" }} />
+            <span className="text-xs text-gray-500">{s.label}:</span>
+            <span className="text-xs font-semibold"
+              style={{ color: s.color || "#9ca3af" }}>{s.val}</span>
+          </div>
+        ))}
+        <div className="ml-auto">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Genel İlerleme</span>
+            <div className="w-24 h-1.5 rounded-full bg-[#1e1e2c] overflow-hidden">
+              <div className="h-full rounded-full"
+                style={{
+                  width: `${totalProgress}%`,
+                  background: "linear-gradient(90deg, #7c3aed, #4f46e5)",
+                }} />
+            </div>
+            <span className="text-xs text-purple-400 font-medium">
+              {totalProgress}%
+            </span>
+          </div>
+        </div>
+      </footer>
 
       {/* ── Add Book Modal Rendering ── */}
       {isAddModalOpen && (

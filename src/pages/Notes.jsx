@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { noteApi } from '../api/noteApi'; 
 import NoteEditor from '../components/notes/NoteEditor';
 import { useAuth } from '../context/AuthContext';
-import NotesSidebar from '../components/notes/NotesSidebar';
 import NotesToolbar from '../components/notes/NotesToolbar';
 import NoteCard from '../components/notes/NoteCard';
 
@@ -113,7 +112,8 @@ export default function Notes() {
   const [sortBy, setSortBy]             = useState('modified');
   const [activeFilters, setActiveFilters] = useState([]);
 
-  // Sidebar-driven folder/tab filter
+  // Sidebar-driven folder/tab filter (Artık sidebar olmadığı için hep 'Tüm Notlar' olarak kalacak, 
+  // toolbar başlığı vb. bozulmasın diye state'i muhafaza ettik)
   const [activeFolder, setActiveFolder] = useState('Tüm Notlar');
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -239,14 +239,6 @@ export default function Notes() {
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="flex h-full w-full overflow-hidden">
-
-      {/* ── Notes Sidebar ──────────────────────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-[220px] flex-shrink-0 h-full overflow-hidden">
-        <NotesSidebar
-          activeFolder={activeFolder}
-          onFolderChange={setActiveFolder}
-        />
-      </aside>
 
       {/* ── Main content column ───────────────────────────────────────────── */}
       <div className="flex flex-1 min-w-0 flex-col h-full overflow-hidden">
