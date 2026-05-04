@@ -1,240 +1,338 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import api from '../api/axiosInstance';
-import SamsungEditor from './Notes/SamsungEditor';
+import { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+// DÜZELTME 1: Doğrudan axios yerine düzelttiğimiz noteApi dosyasını çağırıyoruz!
+import { noteApi } from '../api/noteApi'; 
+import NoteEditor from '../components/notes/NoteEditor';
 import { useAuth } from '../context/AuthContext';
+import NotesSidebar from '../components/notes/NotesSidebar';
+import NotesToolbar from '../components/notes/NotesToolbar';
+import NoteCard from '../components/notes/NoteCard';
 
-// --- PREMIUM SKELETON COMPONENT ---
-const Skeleton = ({ className }) => (
-  <div className={`animate-pulse bg-zinc-800/60 rounded-md ${className}`}></div>
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+const SkeletonCard = ({ variant = 'grid' }) => {
+  if (variant === 'list') {
+    return (
+      <div className="flex items-center gap-3.5 rounded-xl px-4 py-3 border border-[#1c1c28] bg-[#111119] animate-pulse">
+        <div className="h-8 w-8 rounded-lg bg-[#1e1e2a] flex-shrink-0" />
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="h-3 w-2/5 rounded bg-[#1e1e2a]" />
+          <div className="h-2.5 w-3/5 rounded bg-[#181826]" />
+        </div>
+        <div className="hidden sm:flex gap-1.5">
+          <div className="h-4 w-14 rounded-full bg-[#1e1e2a]" />
+          <div className="h-4 w-10 rounded-full bg-[#1e1e2a]" />
+        </div>
+        <div className="h-3 w-16 rounded bg-[#181826] hidden md:block" />
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-[#1c1c28] bg-[#111119] p-4 flex flex-col gap-3 animate-pulse h-[200px]">
+      <div className="flex items-center gap-2.5">
+        <div className="h-8 w-8 rounded-lg bg-[#1e1e2a]" />
+        <div className="h-3.5 w-2/5 rounded bg-[#1e1e2a]" />
+      </div>
+      <div className="space-y-2 flex-1">
+        <div className="h-2.5 w-full rounded bg-[#181826]" />
+        <div className="h-2.5 w-4/5 rounded bg-[#181826]" />
+        <div className="h-2.5 w-3/5 rounded bg-[#181826]" />
+      </div>
+      <div className="flex gap-1.5 pt-2 border-t border-[#191926]">
+        <div className="h-4 w-14 rounded-full bg-[#1e1e2a]" />
+        <div className="h-4 w-10 rounded-full bg-[#1e1e2a]" />
+      </div>
+    </div>
+  );
+};
+
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+const EmptyState = ({ hasSearch, onNewNote }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.25 }}
+    className="flex flex-col items-center justify-center py-24 px-6 rounded-2xl border border-dashed border-[#1e1e2c] bg-[#0e0e16] mx-1"
+  >
+    <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#141420] border border-[#1e1e2c]">
+      <svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#303048" strokeWidth="1.3" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+      </svg>
+    </div>
+    <h3 className="text-[15px] font-[600] text-[#808098] tracking-[-0.02em] mb-1.5">
+      {hasSearch ? 'Sonuç bulunamadı' : 'Henüz not yok'}
+    </h3>
+    <p className="text-[12.5px] text-[#35354a] text-center max-w-[280px] leading-relaxed mb-6">
+      {hasSearch
+        ? 'Arama kriterlerine uyan bir not bulunamadı. Farklı bir kelime deneyin.'
+        : 'Bu klasörde henüz bir not yok. İlk notunu oluştur.'}
+    </p>
+    {!hasSearch && (
+      <button
+        onClick={onNewNote}
+        className="flex items-center gap-2 rounded-xl bg-[#6c6af6] px-4 py-2 text-[12.5px] font-[540] text-white transition-all duration-150 hover:bg-[#7a78f8] shadow-[0_2px_12px_rgba(108,106,246,0.3)]"
+      >
+        <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+        </svg>
+        Yeni Not Oluştur
+      </button>
+    )}
+  </motion.div>
 );
+
+// ─── FOLDER → NoteCard folder prop mapper ─────────────────────────────────────
+
+const FOLDER_META = {
+  'Yazılım':   { name: 'Yazılım',  emoji: '💻', color: '#6c6af6' },
+  'Toplantı':  { name: 'Toplantı', emoji: '📋', color: '#34d399' },
+  'Kişisel':   { name: 'Kişisel',  emoji: '🌿', color: '#fb923c' },
+  'Genel':     { name: 'Genel',    emoji: '📝', color: '#9090a0' },
+};
+
+function folderMeta(category) {
+  return FOLDER_META[category] ?? { name: category || 'Genel', emoji: '📁', color: '#505070' };
+}
+
+// ─── Notes Page ───────────────────────────────────────────────────────────────
 
 export default function Notes() {
   const { user } = useAuth();
-  const [notes, setNotes] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('Tüm Notlar');
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // Data
+  const [notes, setNotes]           = useState([]);
+  const [isLoading, setIsLoading]   = useState(true);
+
+  // Editor
   const [selectedNote, setSelectedNote] = useState(null);
 
-  const tabs = ["Tüm Notlar", "Favoriler", "Kişisel", "Yazılım", "Toplantı"];
+  // Toolbar state
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [view, setView]                 = useState('grid');   // 'grid' | 'list'
+  const [sortBy, setSortBy]             = useState('modified');
+  const [activeFilters, setActiveFilters] = useState([]);
 
-  // --- API İŞLEMLERİ ---
-  const fetchNotes = async () => {
+  // Sidebar-driven folder/tab filter
+  const [activeFolder, setActiveFolder] = useState('Tüm Notlar');
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const fetchNotes = useCallback(async () => {
     try {
       setIsLoading(true);
-      // Yeni DTO sisteminde pagination olduğu için "size=100" ile bolca not çekiyoruz
-      const response = await api.get('/api/notes', { params: { size: 100 } });
-      
-      // Spring Boot Page objesi dönerse içerik "content" içindedir
-      const data = response.data.content || response.data;
+      // BÜYÜK DÜZELTME: Düzelttiğimiz API dosyasından veriyi sorunsuz çekiyoruz
+      const data = await noteApi.getAll(0, 100); 
       setNotes(data || []);
-    } catch (error) {
-      console.error("Notlar çekilemedi:", error);
-      // Backend kapalıysa arayüzü görebilmen için sahte veriler
+    } catch (err) {
+      console.error("Notlar çekilirken hata:", err);
+      // Fallback demo data when backend is offline
       setNotes([
-        { id: 1, title: 'Proje Fikirleri', content: 'Kütüphane uygulaması arayüz iyileştirmeleri...', category: 'Yazılım', favorite: true, updatedAt: '2026-05-02T10:00:00Z' },
-        { id: 2, title: 'Haftalık Toplantı', content: 'Backend uç noktaları kontrol edilecek.', category: 'Toplantı', favorite: false, updatedAt: '2026-05-01T14:30:00Z' },
+        { id: 1, title: 'Proje Fikirleri',       content: 'Kütüphane uygulaması arayüz iyileştirmeleri ve yeni bileşen sistemi üzerine notlar.',  category: 'Yazılım',  favorite: true,  updatedAt: '2026-05-02T10:00:00Z' },
+        { id: 2, title: 'Haftalık Toplantı',      content: 'Backend uç noktaları kontrol edilecek. Auth akışı yeniden gözden geçirilmeli.',        category: 'Toplantı', favorite: false, updatedAt: '2026-05-01T14:30:00Z' },
       ]);
     } finally {
-      setTimeout(() => setIsLoading(false), 400); // Akıcı geçiş için
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    if (user) fetchNotes();
-  }, [user]);
+  useEffect(() => { if (user) fetchNotes(); }, [user, fetchNotes]);
 
-  const handleCreateNewNote = () => {
+  // ── Actions ────────────────────────────────────────────────────────────────
+  const handleCreateNewNote = useCallback(() => {
     setSelectedNote({
       id: 'new',
       title: '',
       content: '',
-      category: activeTab === 'Tüm Notlar' || activeTab === 'Favoriler' ? 'Kişisel' : activeTab,
+      category: ['Tüm Notlar', 'Favoriler'].includes(activeFolder) ? 'Kişisel' : activeFolder,
       favorite: false,
     });
-  };
+  }, [activeFolder]);
 
-  const handleSaveNote = async (updatedNoteData) => {
+  const handleSaveNote = useCallback(async (updatedNoteData) => {
     try {
       if (selectedNote.id === 'new') {
-        await api.post('/api/notes', updatedNoteData);
+        // Düzelttiğimiz API üzerinden gönderiyoruz
+        await noteApi.create(updatedNoteData);
       } else {
-        await api.put(`/api/notes/${selectedNote.id}`, updatedNoteData);
+        await noteApi.update(selectedNote.id, updatedNoteData);
       }
+    } catch (err) {
+      console.error("Kaydetme hatası", err);
+    } finally {
       setSelectedNote(null);
       fetchNotes();
-    } catch (error) {
-      alert("Test Modu: Kaydedildi simülasyonu yapıldı!");
-      setSelectedNote(null);
     }
-  };
+  }, [selectedNote, fetchNotes]);
 
-  // Notları filtreleme mantığı
-  const filteredNotes = notes.filter(note => {
-    // Backend'den gelen boolean değer "favorite", string "category"
-    const matchesTab = activeTab === 'Tüm Notlar' ? true : (activeTab === 'Favoriler' ? note.favorite : note.category === activeTab);
-    const matchesSearch = note.title?.toLowerCase().includes(searchQuery.toLowerCase()) || note.content?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  const handleFavoriteToggle = useCallback(async (id, next) => {
+    const noteToUpdate = notes.find(n => n.id === id);
+    if (!noteToUpdate) return;
 
-  // ==========================================
-  // EĞER BİR NOTA TIKLANDIYSA SAMSUNG EDİTÖRÜNÜ ÇAĞIR
-  // ==========================================
+    // UI'ı anında güncelle (Optimistic Update)
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, favorite: next } : n));
+    
+    try {
+      // DÜZELTME 2: Backend'imiz patch değil PUT bekliyor (UpdateNoteRequest)
+      await noteApi.update(id, { 
+        title: noteToUpdate.title || 'İsimsiz Not', // Backend title'ı NotBlank bekler
+        content: noteToUpdate.content,
+        favorite: next 
+      });
+    } catch {
+      // Hata olursa UI'ı eski haline geri döndür
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, favorite: !next } : n));
+    }
+  }, [notes]);
+
+  const handleDeleteNote = useCallback(async (id) => {
+    setNotes(prev => prev.filter(n => n.id !== id));
+    try {
+      await noteApi.softDelete(id);
+    } catch {
+      fetchNotes();
+    }
+  }, [fetchNotes]);
+
+  // ── Filter / Sort ──────────────────────────────────────────────────────────
+  const filteredNotes = notes
+    .filter(note => {
+      if (activeFolder === 'Favoriler') return note.favorite;
+      if (activeFolder !== 'Tüm Notlar') return note.category === activeFolder;
+      return true;
+    })
+    .filter(note => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        note.title?.toLowerCase().includes(q) ||
+        note.content?.replace(/<[^>]+>/g, '').toLowerCase().includes(q)
+      );
+    })
+    .filter(note => {
+      if (!activeFilters.length) return true;
+      return activeFilters.every(f => note.category === f.label || note.tags?.includes(f.label));
+    })
+    .sort((a, b) => {
+      if (sortBy === 'modified')    return new Date(b.updatedAt) - new Date(a.updatedAt);
+      if (sortBy === 'created')     return b.id - a.id;
+      if (sortBy === 'alpha')       return (a.title || '').localeCompare(b.title || '', 'tr');
+      if (sortBy === 'alpha-desc')  return (b.title || '').localeCompare(a.title || '', 'tr');
+      return 0;
+    });
+
+  // ── Editor overlay ─────────────────────────────────────────────────────────
   if (selectedNote) {
     return (
-      <SamsungEditor 
-        note={selectedNote} 
-        onClose={() => setSelectedNote(null)} 
-        onSave={handleSaveNote} 
+      <NoteEditor
+        note={selectedNote}
+        onClose={() => setSelectedNote(null)}
+        onSave={handleSaveNote}
       />
     );
   }
 
-  // ==========================================
-  // ANA NOTLAR LİSTESİ (KÜTÜPHANE GÖRÜNÜMÜ)
-  // ==========================================
+  // ── Grid columns by view ───────────────────────────────────────────────────
+  const gridClass = view === 'list'
+    ? 'flex flex-col gap-1.5'
+    : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4';
+
+  // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="p-6 md:p-10 min-h-screen bg-background font-sans text-zinc-200">
-      
-      {/* HEADER & ARAMA */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-6">
-        <h1 className="text-3xl font-black text-white flex items-center gap-3 tracking-tight">
-          <div className="w-3 h-8 bg-primary rounded-sm shadow-[0_0_15px_rgba(29,185,84,0.4)]"></div>
-          Notlarım
-        </h1>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-          <div className="relative w-full sm:w-80 group">
-            <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors"></i>
-            <input 
-              type="text" 
-              placeholder="Notlarda ara..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-surface border border-border text-zinc-200 text-sm rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all shadow-sm"
+    <div className="flex h-full w-full overflow-hidden">
+
+      {/* ── Notes Sidebar ──────────────────────────────────────────────────── */}
+      <aside className="hidden lg:flex flex-col w-[220px] flex-shrink-0 h-full overflow-hidden">
+        <NotesSidebar
+          activeFolder={activeFolder}
+          onFolderChange={setActiveFolder}
+        />
+      </aside>
+
+      {/* ── Main content column ───────────────────────────────────────────── */}
+      <div className="flex flex-1 min-w-0 flex-col h-full overflow-hidden">
+
+        {/* Toolbar */}
+        <NotesToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          view={view}
+          onViewChange={setView}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          filters={activeFilters}
+          onFilterRemove={(f) => setActiveFilters(prev => prev.filter(x => x.label !== f.label))}
+          onNewNote={handleCreateNewNote}
+          totalNotes={filteredNotes.length}
+          activeFolder={activeFolder}
+        />
+
+        {/* Scrollable note grid */}
+        <main
+          className={[
+            'flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 py-5',
+            '[&::-webkit-scrollbar]:w-[3px]',
+            '[&::-webkit-scrollbar-track]:bg-transparent',
+            '[&::-webkit-scrollbar-thumb]:rounded-full',
+            '[&::-webkit-scrollbar-thumb]:bg-[#2a2a36]',
+          ].join(' ')}
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#2a2a36 transparent' }}
+          aria-label="Notlar listesi"
+        >
+          {isLoading ? (
+            <div className={gridClass}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <SkeletonCard key={i} variant={view} />
+              ))}
+            </div>
+          ) : filteredNotes.length > 0 ? (
+            <motion.div
+              key={`${view}-${activeFolder}-${sortBy}`}
+              initial="hidden"
+              animate="show"
+              variants={{
+                hidden: { opacity: 0 },
+                show:   { opacity: 1, transition: { staggerChildren: 0.04 } },
+              }}
+              className={gridClass}
+            >
+              <AnimatePresence mode="popLayout">
+                {filteredNotes.map(note => (
+                  <motion.div
+                    key={note.id}
+                    layout
+                    variants={{
+                      hidden: { opacity: 0, y: 12 },
+                      show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 340, damping: 26 } },
+                    }}
+                    exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+                  >
+                    <NoteCard
+                      id={note.id}
+                      title={note.title}
+                      content={note.content?.replace(/<[^>]+>/g, '') ?? ''}
+                      emoji={note.emoji ?? undefined}
+                      tags={note.tags ?? []}
+                      folder={folderMeta(note.category)}
+                      isFavorited={note.favorite}
+                      updatedAt={note.updatedAt}
+                      path={`/dashboard/notes/${note.id}`}
+                      accentColor={folderMeta(note.category).color}
+                      variant={view}
+                      onFavoriteToggle={handleFavoriteToggle}
+                      onDelete={() => handleDeleteNote(note.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          ) : (
+            <EmptyState
+              hasSearch={!!searchQuery || activeFilters.length > 0}
+              onNewNote={handleCreateNewNote}
             />
-          </div>
-          
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleCreateNewNote}
-            className="w-full sm:w-auto bg-primary hover:bg-primary-hover text-background px-6 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg whitespace-nowrap"
-          >
-            <i className="fa-solid fa-plus"></i> Yeni Not
-          </motion.button>
-        </div>
+          )}
+        </main>
       </div>
-
-      {/* KLASÖRLER / SEKMELER (Framer Motion ile akıcı çizgi animasyonu) */}
-      <div className="flex items-center border-b border-border mb-8 overflow-x-auto custom-scrollbar pb-1">
-        {tabs.map(tab => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-5 py-4 text-sm font-semibold transition-colors relative flex items-center gap-2 whitespace-nowrap ${
-              activeTab === tab ? 'text-white' : 'text-muted hover:text-zinc-300'
-            }`}
-          >
-            {tab === 'Tüm Notlar' && <i className="fa-solid fa-layer-group"></i>}
-            {tab === 'Favoriler' && <i className="fa-solid fa-star text-yellow-500/80"></i>}
-            {tab !== 'Tüm Notlar' && tab !== 'Favoriler' && <i className="fa-regular fa-folder"></i>}
-            {tab}
-            
-            {activeTab === tab && (
-              <motion.div 
-                layoutId="activeNoteTab"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"
-              />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* GRID KARTLARI (NOTLAR) */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="h-56 w-full rounded-2xl" />
-          ))}
-        </div>
-      ) : filteredNotes.length > 0 ? (
-        <motion.div 
-          initial="hidden"
-          animate="show"
-          variants={{
-            hidden: { opacity: 0 },
-            show: { opacity: 1, transition: { staggerChildren: 0.05 } }
-          }}
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
-        >
-          <AnimatePresence>
-            {filteredNotes.map(note => (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-                }}
-                whileHover={{ y: -5 }}
-                key={note.id} 
-                onClick={() => setSelectedNote(note)}
-                className="bg-surface border border-border rounded-2xl p-6 hover:border-zinc-500 transition-colors cursor-pointer group h-56 flex flex-col relative shadow-sm hover:shadow-md"
-              >
-                {/* Sağ üstteki favori ikonu */}
-                <div className="absolute top-5 right-5 z-10">
-                  <i className={`text-lg transition-transform duration-300 group-hover:scale-110 ${note.favorite ? 'fa-solid fa-star text-yellow-500' : 'fa-regular fa-star text-zinc-600 group-hover:text-zinc-400'}`}></i>
-                </div>
-
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="bg-zinc-800 text-muted px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-border">
-                    {note.category || 'Genel'}
-                  </span>
-                </div>
-
-                <h3 className="font-bold text-white text-xl mb-1 pr-8 truncate group-hover:text-primary transition-colors">
-                  {note.title || "Başlıksız Not"}
-                </h3>
-                
-                <div className="flex-1 overflow-hidden relative mt-2">
-                  <p className="text-zinc-400 text-sm leading-relaxed line-clamp-3">
-                    {/* Eğer içerikte HTML tagleri varsa temizleyip göstermek için basit bir hile (Jodit editörden dolayı HTML gelebilir) */}
-                    {note.content ? note.content.replace(/<[^>]+>/g, '') : "İçerik yok..."}
-                  </p>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-border flex justify-between items-center text-xs text-zinc-500 font-medium">
-                  <span>{note.updatedAt ? new Date(note.updatedAt).toLocaleDateString('tr-TR') : 'Tarih Yok'}</span>
-                  <i className="fa-solid fa-arrow-right opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"></i>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      ) : (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center py-32 bg-surface border border-border border-dashed rounded-3xl"
-        >
-          <div className="w-20 h-20 rounded-full bg-zinc-800/50 flex items-center justify-center mb-6">
-            <i className="fa-regular fa-folder-open text-4xl text-zinc-600"></i>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">Not Bulunamadı</h3>
-          <p className="text-sm text-muted mb-6 text-center max-w-md">
-            Bu kategoride henüz bir notun yok veya aramana uygun sonuç bulunamadı. Hemen yeni bir tane oluştur!
-          </p>
-          <button 
-            onClick={handleCreateNewNote}
-            className="text-primary hover:text-primary-hover font-bold text-sm flex items-center gap-2 transition-colors"
-          >
-            <i className="fa-solid fa-pen-nib"></i> Yazmaya Başla
-          </button>
-        </motion.div>
-      )}
     </div>
   );
 }

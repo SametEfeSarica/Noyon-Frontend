@@ -1,194 +1,1001 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import api from '../api/axiosInstance';
-import { useAuth } from '../context/AuthContext';
 
-// --- PREMIUM SKELETON COMPONENT ---
-const Skeleton = ({ className }) => (
-  <div className={`animate-pulse bg-zinc-800/60 rounded-md ${className}`}></div>
+// ─── Inject keyframes once ────────────────────────────────────────────────────
+const injectStyles = () => {
+  if (document.getElementById('cal-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'cal-styles';
+  s.textContent = `
+    @keyframes calFadeIn   { from { opacity:0; transform:translateY(4px) } to { opacity:1; transform:translateY(0) } }
+    @keyframes calScaleIn  { from { opacity:0; transform:scale(0.96) translateY(-4px) } to { opacity:1; transform:scale(1) translateY(0) } }
+    @keyframes calSlideUp  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+    @keyframes calPop      { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
+    @keyframes calSpin     { to { transform: rotate(360deg) } }
+
+    .cal-day { transition: background 0.13s ease, box-shadow 0.13s ease; }
+    .cal-day:hover .cal-day-inner { background: #1e1e28; }
+    .cal-day:hover .cal-add-btn   { opacity: 1 !important; }
+
+    .cal-event { transition: filter 0.12s ease, transform 0.12s ease; cursor:pointer; }
+    .cal-event:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+    .cal-nav-btn:hover { background: #1e1e28 !important; color: #d0d0e0 !important; }
+
+    .cal-pill-btn { transition: all 0.12s ease; }
+    .cal-pill-btn:hover { background: #1e1e28 !important; color: #d0d0e0 !important; }
+    .cal-pill-btn.active { background: #252535 !important; color: #9d9cf8 !important; border-color: rgba(108,106,246,0.35) !important; }
+
+    .cal-scroll::-webkit-scrollbar { width: 4px; }
+    .cal-scroll::-webkit-scrollbar-track { background: transparent; }
+    .cal-scroll::-webkit-scrollbar-thumb { background: #2a2a36; border-radius: 9999px; }
+    .cal-scroll::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }
+
+    .cal-modal-overlay { animation: calFadeIn 0.15s ease; }
+    .cal-modal-box     { animation: calScaleIn 0.18s cubic-bezier(0.34,1.2,0.64,1); }
+    .cal-row           { animation: calSlideUp 0.22s ease both; }
+    .cal-sidebar-item  { transition: background 0.12s ease, border-color 0.12s ease; }
+    .cal-sidebar-item:hover { background: #1e1e28 !important; border-color: #2e2e3e !important; }
+
+    .cal-today-ring { animation: calPop 0.4s ease; }
+  `;
+  document.head.appendChild(s);
+};
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const FONT  = '-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif';
+const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
+                 'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const DAYS_SHORT = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+const DAYS_LONG  = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
+
+const EVENT_TYPES = {
+  task: {
+    label: 'Görev',
+    color: '#6c6af6', bg: 'rgba(108,106,246,0.18)', border: 'rgba(108,106,246,0.35)',
+    dot: '#6c6af6',
+  },
+  subscription: {
+    label: 'Abonelik',
+    color: '#a855f7', bg: 'rgba(168,85,247,0.16)', border: 'rgba(168,85,247,0.32)',
+    dot: '#a855f7',
+  },
+  payment: {
+    label: 'Ödeme',
+    color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.30)',
+    dot: '#10b981',
+  },
+  note: {
+    label: 'Not',
+    color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.28)',
+    dot: '#f59e0b',
+  },
+};
+
+const PRIORITY_COLORS = {
+  urgent: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e',
+};
+
+// ─── Tiny SVG icons ───────────────────────────────────────────────────────────
+const IC = {
+  ChevLeft: () => (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
+    </svg>
+  ),
+  ChevRight: () => (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+    </svg>
+  ),
+  ChevDown: () => (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+    </svg>
+  ),
+  Plus: () => (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+    </svg>
+  ),
+  X: () => (
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+    </svg>
+  ),
+  Calendar: () => (
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
+    </svg>
+  ),
+  Flag: () => (
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 7l2.55 2.4A1 1 0 0116 11H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd"/>
+    </svg>
+  ),
+  CreditCard: () => (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+      <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+      <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/>
+    </svg>
+  ),
+  Refresh: () => (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd"/>
+    </svg>
+  ),
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const generateId = () => `ev_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+
+const getMonthGrid = (year, month) => {
+  const firstDay   = new Date(year, month, 1).getDay();
+  const daysInMonth= new Date(year, month + 1, 0).getDate();
+  const daysInPrev = new Date(year, month, 0).getDate();
+  const offset     = firstDay === 0 ? 6 : firstDay - 1;
+  const cells = [];
+  for (let i = offset - 1; i >= 0; i--)
+    cells.push({ day: daysInPrev - i, month: month - 1, year: month === 0 ? year - 1 : year, overflow: true });
+  for (let d = 1; d <= daysInMonth; d++)
+    cells.push({ day: d, month, year, overflow: false });
+  const remaining = 42 - cells.length;
+  for (let d = 1; d <= remaining; d++)
+    cells.push({ day: d, month: month + 1, year: month === 11 ? year + 1 : year, overflow: true });
+  return cells;
+};
+
+const isSameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth()    === b.getMonth()    &&
+  a.getDate()     === b.getDate();
+
+const isToday = (year, month, day) => isSameDay(new Date(year, month, day), new Date());
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+const Skeleton = ({ w = '100%', h = 14, r = 6 }) => (
+  <div style={{
+    width: w, height: h, borderRadius: r,
+    background: 'linear-gradient(90deg,#1a1a22 25%,#222230 50%,#1a1a22 75%)',
+    backgroundSize: '400% 100%',
+    animation: 'calSpin 1.6s ease-in-out infinite',
+  }} />
 );
 
-export default function Calendar() {
-  const { user } = useAuth();
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+// ─── Event Pill ───────────────────────────────────────────────────────────────
+const EventPill = memo(({ event, onClick, compact = false }) => {
+  const cfg = EVENT_TYPES[event.type] || EVENT_TYPES.task;
+  return (
+    <div
+      className="cal-event"
+      onClick={(e) => { e.stopPropagation(); onClick(event); }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: compact ? '1px 5px' : '2px 7px',
+        borderRadius: 5,
+        background: cfg.bg, border: `1px solid ${cfg.border}`,
+        fontSize: compact ? 10.5 : 11.5,
+        fontWeight: 550, color: cfg.color,
+        overflow: 'hidden', whiteSpace: 'nowrap',
+        lineHeight: 1.5, userSelect: 'none',
+      }}
+    >
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{event.title}</span>
+    </div>
+  );
+});
 
-  // --- API / VERİ ÇEKME ---
-  const fetchEvents = async () => {
-    try {
-      setIsLoading(true);
-      // Gerçek senaryoda backend'den o aya ait takvim verilerini çekeceğiz
-      // const response = await api.get(`/api/calendar/events?year=${currentDate.getFullYear()}&month=${currentDate.getMonth() + 1}`);
-      // setEvents(response.data);
+// ─── Day Cell ─────────────────────────────────────────────────────────────────
+const DayCell = memo(({ cell, events, selected, onClick, onEventClick }) => {
+  const today      = isToday(cell.year, cell.month, cell.day);
+  const isSelected = selected && isSameDay(new Date(cell.year, cell.month, cell.day), selected);
+  const visible    = events.slice(0, 3);
+  const overflow   = events.length - 3;
 
-      // Backend tam hazır olana kadar arayüzü dolu göstermek için simülasyon:
-      setTimeout(() => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        setEvents([
-          { id: 1, title: 'Proje Teslimi', date: new Date(year, month, 15), type: 'task', color: 'bg-blue-500', icon: 'fa-check' },
-          { id: 2, title: 'Netflix Yenileme', date: new Date(year, month, 22), type: 'sub', color: 'bg-purple-500', icon: 'fa-credit-card' },
-          { id: 3, title: 'Ekip Toplantısı', date: new Date(year, month, 5), type: 'event', color: 'bg-emerald-500', icon: 'fa-calendar' },
-          { id: 4, title: 'Fatura Ödemesi', date: new Date(year, month, 5), type: 'sub', color: 'bg-purple-500', icon: 'fa-wallet' },
-          { id: 5, title: 'Spora Başla', date: new Date(year, month, 28), type: 'event', color: 'bg-yellow-500', icon: 'fa-dumbbell' },
-        ]);
-        setIsLoading(false);
-      }, 500);
-    } catch (error) {
-      console.error("Takvim verileri çekilemedi:", error);
-      setIsLoading(false);
-    }
+  return (
+    <div
+      className="cal-day"
+      onClick={() => onClick(cell)}
+      style={{
+        minHeight: 90, padding: 0, cursor: 'pointer', position: 'relative',
+        borderRight: '1px solid #1e1e28', borderBottom: '1px solid #1e1e28',
+      }}
+    >
+      <div
+        className="cal-day-inner"
+        style={{
+          height: '100%', padding: '7px 7px 6px',
+          background: isSelected ? '#1a1a2e' : 'transparent',
+          transition: 'background 0.13s ease',
+          display: 'flex', flexDirection: 'column', gap: 3,
+        }}
+      >
+        {/* Day number */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+          <span
+            className={today ? 'cal-today-ring' : ''}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: today ? 26 : 22, height: today ? 26 : 22,
+              borderRadius: '50%',
+              background: today ? '#6c6af6' : 'transparent',
+              color: today ? '#fff' : isSelected ? '#9d9cf8' : cell.overflow ? '#35354a' : '#9090a0',
+              fontSize: 12.5, fontWeight: today ? 700 : 500,
+              lineHeight: 1, flexShrink: 0,
+            }}
+          >
+            {cell.day}
+          </span>
+          {/* Add event hint */}
+          <button
+            className="cal-add-btn"
+            onClick={(e) => { e.stopPropagation(); onClick(cell, true); }}
+            title="Etkinlik ekle"
+            style={{
+              opacity: 0, width: 20, height: 20, borderRadius: 5,
+              border: 'none', background: 'rgba(108,106,246,0.15)',
+              color: '#6c6af6', cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'opacity 0.12s ease',
+            }}
+          >
+            <IC.Plus />
+          </button>
+        </div>
+
+        {/* Event pills */}
+        {visible.map(ev => (
+          <EventPill key={ev.id} event={ev} onClick={onEventClick} compact />
+        ))}
+        {overflow > 0 && (
+          <span style={{ fontSize: 10.5, color: '#45455a', fontWeight: 600, paddingLeft: 5 }}>
+            +{overflow} daha
+          </span>
+        )}
+      </div>
+
+      {/* Selected border highlight */}
+      {isSelected && (
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          boxShadow: 'inset 0 0 0 1.5px rgba(108,106,246,0.4)',
+          borderRadius: 1,
+        }} />
+      )}
+    </div>
+  );
+});
+
+// ─── Day Detail Panel ─────────────────────────────────────────────────────────
+const DayPanel = memo(({ date, events, onClose, onAdd }) => {
+  const today = date && isSameDay(date, new Date());
+  const dayName = date ? DAYS_LONG[(date.getDay() + 6) % 7] : '';
+
+  return (
+    <aside style={{
+      width: 280, flexShrink: 0,
+      background: '#13131a', borderLeft: '1px solid #1e1e28',
+      display: 'flex', flexDirection: 'column',
+      animation: 'calFadeIn 0.18s ease',
+    }}>
+      {/* Panel header */}
+      <div style={{
+        padding: '16px 16px 12px',
+        borderBottom: '1px solid #1e1e28',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+      }}>
+        <div>
+          {date ? (
+            <>
+              <p style={{ margin: 0, fontSize: 11, color: '#45455a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                {dayName}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
+                <span style={{
+                  fontSize: 32, fontWeight: 300, lineHeight: 1,
+                  color: today ? '#9d9cf8' : '#d0d0e0',
+                  letterSpacing: '-0.03em',
+                }}>
+                  {date.getDate()}
+                </span>
+                <span style={{ fontSize: 13, color: '#45455a', fontWeight: 500 }}>
+                  {MONTHS[date.getMonth()]} {date.getFullYear()}
+                </span>
+              </div>
+              {today && (
+                <span style={{
+                  display: 'inline-block', marginTop: 6, fontSize: 10.5,
+                  background: 'rgba(108,106,246,0.15)', border: '1px solid rgba(108,106,246,0.3)',
+                  color: '#9d9cf8', padding: '2px 8px', borderRadius: 20, fontWeight: 600,
+                }}>Bugün</span>
+              )}
+            </>
+          ) : (
+            <p style={{ margin: 0, fontSize: 13, color: '#45455a' }}>Gün seç</p>
+          )}
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer',
+            background: 'transparent', color: '#45455a', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.12s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#45455a'; }}
+        >
+          <IC.X />
+        </button>
+      </div>
+
+      {/* Add event button */}
+      {date && (
+        <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e1e28' }}>
+          <button
+            onClick={onAdd}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+              padding: '8px 12px', borderRadius: 9, border: '1px dashed #2e2e3e',
+              background: 'transparent', cursor: 'pointer', color: '#6c6af6',
+              fontSize: 12.5, fontWeight: 550, fontFamily: FONT,
+              transition: 'all 0.12s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(108,106,246,0.07)'; e.currentTarget.style.borderColor = 'rgba(108,106,246,0.35)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#2e2e3e'; }}
+          >
+            <IC.Plus /> Etkinlik ekle
+          </button>
+        </div>
+      )}
+
+      {/* Events list */}
+      <div className="cal-scroll" style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {!date ? (
+          <PanelEmpty message="Takvimde bir güne tıklayarak etkinlikleri görüntüleyin." />
+        ) : events.length === 0 ? (
+          <PanelEmpty message="Bu gün için etkinlik bulunmuyor." />
+        ) : (
+          events.map((ev, i) => (
+            <PanelEventCard key={ev.id} event={ev} delay={i * 35} />
+          ))
+        )}
+      </div>
+    </aside>
+  );
+});
+
+const PanelEmpty = ({ message }) => (
+  <div style={{ padding: '32px 8px', textAlign: 'center' }}>
+    <div style={{
+      width: 40, height: 40, borderRadius: '50%',
+      background: '#1a1a22', border: '1px solid #252530',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      margin: '0 auto 12px', color: '#35354a',
+    }}>
+      <IC.Calendar />
+    </div>
+    <p style={{ margin: 0, fontSize: 12.5, color: '#35354a', lineHeight: 1.6 }}>{message}</p>
+  </div>
+);
+
+const PanelEventCard = memo(({ event, delay }) => {
+  const cfg = EVENT_TYPES[event.type] || EVENT_TYPES.task;
+  return (
+    <div
+      className="cal-sidebar-item"
+      style={{
+        background: '#19191f', border: '1px solid #232330',
+        borderRadius: 10, padding: '10px 12px',
+        animation: `calSlideUp 0.2s ease ${delay}ms both`,
+        borderLeft: `3px solid ${cfg.color}`,
+        cursor: 'default',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 10.5, fontWeight: 650, color: cfg.color,
+          background: cfg.bg, border: `1px solid ${cfg.border}`,
+          padding: '1px 6px', borderRadius: 4,
+        }}>
+          {event.type === 'task' && <IC.Flag />}
+          {event.type === 'subscription' && <IC.CreditCard />}
+          {event.type === 'payment' && <IC.CreditCard />}
+          {cfg.label}
+        </span>
+        {event.priority && (
+          <span style={{
+            fontSize: 10.5, fontWeight: 600,
+            color: PRIORITY_COLORS[event.priority] || '#9090a0',
+          }}>
+            ● {event.priority === 'urgent' ? 'Acil' : event.priority === 'high' ? 'Yüksek' : event.priority === 'medium' ? 'Orta' : 'Düşük'}
+          </span>
+        )}
+      </div>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#c8c8d8', lineHeight: 1.4 }}>
+        {event.title}
+      </p>
+      {event.subtitle && (
+        <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#45455a' }}>{event.subtitle}</p>
+      )}
+      {event.amount && (
+        <p style={{ margin: '5px 0 0', fontSize: 13, fontWeight: 700, color: '#10b981' }}>
+          ₺{parseFloat(event.amount).toFixed(0)}
+        </p>
+      )}
+    </div>
+  );
+});
+
+// ─── Event Modal ──────────────────────────────────────────────────────────────
+const EventModal = ({ date, onClose, onSave }) => {
+  const [form, setForm] = useState({ title: '', type: 'task', priority: 'medium', note: '' });
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.title.trim()) return;
+    onSave({
+      id: generateId(), ...form,
+      date: date.toISOString().split('T')[0],
+    });
+    onClose();
   };
 
-  useEffect(() => {
-    if (user) fetchEvents();
-  }, [user, currentDate]);
+  const LabelS = ({ children }) => (
+    <span style={{ display: 'block', fontSize: 11, fontWeight: 650, color: '#45455a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7 }}>
+      {children}
+    </span>
+  );
 
-  // --- TAKVİM HESAPLAMALARI ---
-  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-  // Pazartesiyi haftanın ilk günü yapıyoruz (JS'de 0 Pazar'dır)
-  const startDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
-
-  const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-  const dayNames = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
-
-  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  const goToday = () => setCurrentDate(new Date());
-
-  const isToday = (day) => {
-    const today = new Date();
-    return day === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
-  };
-
-  const getEventsForDay = (day) => {
-    return events.filter(e => e.date.getDate() === day);
+  const inputS = {
+    width: '100%', padding: '8px 11px', borderRadius: 8,
+    border: '1px solid #252530', background: '#0e0e14',
+    color: '#d0d0e0', fontSize: 13, fontFamily: FONT,
+    outline: 'none', boxSizing: 'border-box',
+    transition: 'border-color 0.12s ease',
   };
 
   return (
-    <div className="p-6 md:p-10 min-h-screen bg-background font-sans text-zinc-200 flex flex-col h-screen overflow-hidden">
-      
-      {/* HEADER: Başlık ve Kontroller */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 text-2xl border border-orange-500/20 shadow-sm">
-            <i className="fa-regular fa-calendar-days"></i>
+    <div
+      className="cal-modal-overlay"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="cal-modal-box" style={{
+        width: '100%', maxWidth: 440,
+        background: '#16161e', border: '1px solid #252530',
+        borderRadius: 16, overflow: 'hidden',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
+      }}>
+        {/* Modal header */}
+        <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #1e1e28', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 11, color: '#45455a', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              Yeni Etkinlik
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 650, color: '#d0d0e0' }}>
+              {date ? `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}` : ''}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#45455a', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s ease' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#45455a'; }}>
+            <IC.X />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 15 }}>
+          <div>
+            <LabelS>Başlık *</LabelS>
+            <input autoFocus value={form.title} onChange={e => up('title', e.target.value)}
+              placeholder="Etkinlik başlığı…" style={inputS}
+              onFocus={e => e.target.style.borderColor = 'rgba(108,106,246,0.5)'}
+              onBlur={e => e.target.style.borderColor = '#252530'}
+              onKeyDown={e => e.key === 'Enter' && handleSave()}
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <LabelS>Tür</LabelS>
+              <select value={form.type} onChange={e => up('type', e.target.value)} style={{ ...inputS, cursor: 'pointer' }}>
+                {Object.entries(EVENT_TYPES).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <LabelS>Öncelik</LabelS>
+              <select value={form.priority} onChange={e => up('priority', e.target.value)} style={{ ...inputS, cursor: 'pointer' }}>
+                <option value="urgent">Acil</option>
+                <option value="high">Yüksek</option>
+                <option value="medium">Orta</option>
+                <option value="low">Düşük</option>
+              </select>
+            </div>
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white tracking-tight flex items-baseline gap-2">
-              {monthNames[currentDate.getMonth()]} 
-              <span className="text-xl font-bold text-muted">{currentDate.getFullYear()}</span>
-            </h1>
+            <LabelS>Not</LabelS>
+            <textarea value={form.note} onChange={e => up('note', e.target.value)}
+              placeholder="İsteğe bağlı not…" rows={2}
+              style={{ ...inputS, resize: 'vertical', lineHeight: 1.55 }}
+              onFocus={e => e.target.style.borderColor = 'rgba(108,106,246,0.5)'}
+              onBlur={e => e.target.style.borderColor = '#252530'}
+            />
           </div>
         </div>
-        
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <button 
-            onClick={goToday}
-            className="px-4 py-2 bg-surface hover:bg-zinc-800 border border-border text-sm font-bold text-zinc-300 rounded-lg transition-colors shadow-sm"
-          >
-            Bugün
+
+        {/* Footer */}
+        <div style={{ padding: '10px 20px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #252530', background: 'transparent', color: '#9090a0', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: FONT, transition: 'all 0.12s ease' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#d0d0e0'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9090a0'; }}>
+            İptal
           </button>
-          <div className="flex items-center bg-surface border border-border rounded-lg p-1 shadow-sm">
-            <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-zinc-800 text-muted hover:text-white transition-colors">
-              <i className="fa-solid fa-chevron-left text-xs"></i>
-            </button>
-            <div className="w-px h-4 bg-border mx-1"></div>
-            <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-zinc-800 text-muted hover:text-white transition-colors">
-              <i className="fa-solid fa-chevron-right text-xs"></i>
-            </button>
-          </div>
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => alert("Yeni etkinlik ekleme modalı açılacak")}
-            className="ml-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-md"
-          >
-            <i className="fa-solid fa-plus"></i> Ekle
-          </motion.button>
-        </div>
-      </div>
-
-      {/* TAKVİM GRID ALANI */}
-      <div className="flex-1 bg-surface border border-border rounded-2xl overflow-hidden flex flex-col shadow-sm">
-        
-        {/* Haftanın Günleri (Başlık Satırı) */}
-        <div className="grid grid-cols-7 border-b border-border bg-zinc-900/50">
-          {dayNames.map((day, i) => (
-            <div key={day} className={`py-3 text-center text-xs font-bold uppercase tracking-wider ${i >= 5 ? 'text-zinc-500' : 'text-zinc-400'}`}>
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Günler (Hücreler) */}
-        <div className="flex-1 grid grid-cols-7 grid-rows-5 overflow-hidden bg-zinc-900/20">
-          {isLoading ? (
-             [...Array(35)].map((_, i) => (
-               <div key={`skel-${i}`} className="border-r border-b border-border/50 p-2">
-                 <Skeleton className="w-6 h-6 rounded-full mb-2" />
-                 <Skeleton className="w-full h-4 rounded mt-1" />
-               </div>
-             ))
-          ) : (
-            <>
-              {/* Ayın ilk gününden önceki boşluklar */}
-              {[...Array(startDay)].map((_, i) => (
-                <div key={`empty-${i}`} className="border-r border-b border-border/50 bg-zinc-900/40 p-2 opacity-50"></div>
-              ))}
-
-              {/* Gerçek Günler */}
-              {[...Array(daysInMonth)].map((_, i) => {
-                const day = i + 1;
-                const dayEvents = getEventsForDay(day);
-                const isCurrentDay = isToday(day);
-
-                return (
-                  <div key={day} className={`border-r border-b border-border/50 p-2 flex flex-col transition-colors hover:bg-zinc-800/30 group ${isCurrentDay ? 'bg-orange-500/5' : ''}`}>
-                    
-                    {/* Gün Numarası */}
-                    <div className="flex justify-between items-start mb-1">
-                      <div className={`w-7 h-7 flex items-center justify-center text-xs font-bold rounded-full ${
-                        isCurrentDay ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' : 'text-zinc-400 group-hover:text-white transition-colors'
-                      }`}>
-                        {day}
-                      </div>
-                    </div>
-
-                    {/* Etkinlik Rozetleri */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
-                      {dayEvents.map(ev => (
-                        <motion.div 
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          key={ev.id} 
-                          title={ev.title}
-                          className={`text-[10px] font-bold px-1.5 py-1 rounded border flex items-center gap-1.5 cursor-pointer hover:brightness-125 transition-all truncate
-                            ${ev.color === 'bg-blue-500' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : ''}
-                            ${ev.color === 'bg-purple-500' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : ''}
-                            ${ev.color === 'bg-emerald-500' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : ''}
-                            ${ev.color === 'bg-yellow-500' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : ''}
-                          `}
-                        >
-                          <i className={`fa-solid ${ev.icon} text-[8px]`}></i>
-                          <span className="truncate">{ev.title}</span>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Ayın son gününden sonraki boşluklar (Grid'i tamamlamak için) */}
-              {[...Array(42 - (startDay + daysInMonth))].slice(0, 35 - (startDay + daysInMonth) >= 0 ? 35 - (startDay + daysInMonth) : 42 - (startDay + daysInMonth)).map((_, i) => (
-                <div key={`empty-end-${i}`} className="border-r border-b border-border/50 bg-zinc-900/40 p-2 opacity-50"></div>
-              ))}
-            </>
-          )}
+          <button onClick={handleSave} disabled={!form.title.trim()} style={{ padding: '7px 18px', borderRadius: 8, border: 'none', background: form.title.trim() ? '#6c6af6' : '#252530', color: form.title.trim() ? '#fff' : '#45455a', cursor: form.title.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, fontFamily: FONT, transition: 'all 0.12s ease' }}
+            onMouseEnter={e => { if (form.title.trim()) e.currentTarget.style.background = '#5856d6'; }}
+            onMouseLeave={e => { if (form.title.trim()) e.currentTarget.style.background = '#6c6af6'; }}>
+            Kaydet
+          </button>
         </div>
       </div>
     </div>
   );
+};
+
+// ─── Mini Month Navigator (sidebar) ──────────────────────────────────────────
+const MiniMonth = memo(({ year, month, selectedDate, onDayClick }) => {
+  const [cur, setCur] = useState({ year, month });
+  useEffect(() => { setCur({ year, month }); }, [year, month]);
+
+  const cells = getMonthGrid(cur.year, cur.month);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  return (
+    <div style={{ padding: '12px 14px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 650, color: '#9090a0', letterSpacing: '-0.01em' }}>
+          {MONTHS[cur.month]} {cur.year}
+        </span>
+        <div style={{ display: 'flex', gap: 2 }}>
+          {[
+            { icon: <IC.ChevLeft />, fn: () => setCur(c => ({ ...c, month: c.month === 0 ? 11 : c.month - 1, year: c.month === 0 ? c.year - 1 : c.year })) },
+            { icon: <IC.ChevRight />, fn: () => setCur(c => ({ ...c, month: c.month === 11 ? 0 : c.month + 1, year: c.month === 11 ? c.year + 1 : c.year })) },
+          ].map((b, i) => (
+            <button key={i} onClick={b.fn} style={{ width: 22, height: 22, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#45455a', transition: 'all 0.12s ease' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#45455a'; }}>
+              {b.icon}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1, marginBottom: 4 }}>
+        {['P','S','Ç','P','C','C','P'].map((d, i) => (
+          <div key={i} style={{ textAlign: 'center', fontSize: 10, fontWeight: 650, color: '#35354a', padding: '2px 0' }}>{d}</div>
+        ))}
+      </div>
+      {weeks.map((week, wi) => (
+        <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1 }}>
+          {week.map((cell, ci) => {
+            const today = isToday(cell.year, cell.month, cell.day);
+            const sel   = selectedDate && isSameDay(new Date(cell.year, cell.month, cell.day), selectedDate);
+            return (
+              <button key={ci} onClick={() => onDayClick(new Date(cell.year, cell.month, cell.day))}
+                style={{
+                  width: '100%', aspectRatio: '1', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0,
+                  fontSize: 11, fontWeight: today || sel ? 700 : 400,
+                  background: today ? '#6c6af6' : sel ? 'rgba(108,106,246,0.2)' : 'transparent',
+                  color: today ? '#fff' : sel ? '#9d9cf8' : cell.overflow ? '#2a2a36' : '#6060708',
+                  transition: 'all 0.1s ease',
+                }}
+                onMouseEnter={e => { if (!today && !sel) { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}}
+                onMouseLeave={e => { if (!today && !sel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = cell.overflow ? '#2a2a36' : '#6060708'; }}}
+              >
+                {cell.day}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+});
+
+// ─── Legend ───────────────────────────────────────────────────────────────────
+const Legend = () => (
+  <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e28' }}>
+    <p style={{ margin: '0 0 9px', fontSize: 10.5, fontWeight: 650, color: '#35354a', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+      Türler
+    </p>
+    {Object.entries(EVENT_TYPES).map(([k, v]) => (
+      <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: v.color, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: '#55556a', fontWeight: 500 }}>{v.label}</span>
+      </div>
+    ))}
+  </div>
+);
+
+// ─── Main Calendar Page ───────────────────────────────────────────────────────
+export default function Calendar() {
+  useEffect(() => { injectStyles(); }, []);
+
+  const userId = localStorage.getItem('userId') || 1;
+  const today  = new Date();
+
+  const [curYear,  setCurYear]  = useState(today.getFullYear());
+  const [curMonth, setCurMonth] = useState(today.getMonth());
+  const [loading,  setLoading]  = useState(true);
+  const [events,   setEvents]   = useState([]);     // { id, title, type, date(ISO), priority?, amount?, subtitle? }
+  const [selectedDate, setSelected] = useState(today);
+  const [showModal,    setShowModal] = useState(false);
+  const [modalDate,    setModalDate] = useState(null);
+  const [activeFilter, setFilter]   = useState('all');
+  const [panelOpen,    setPanelOpen] = useState(true);
+  const [transitioning, setTrans]   = useState(false);
+
+  // ── Fetch tasks + subscriptions and map to events
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [tRes, sRes] = await Promise.allSettled([
+          api.get('/api/tasks'),
+          api.get('/api/subscriptions'),
+        ]);
+        const ev = [];
+
+        if (tRes.status === 'fulfilled') {
+          // ApiResponse paketini açıyoruz (.data.data)
+          const tasksData = tRes.value.data.data || tRes.value.data;
+          
+          tasksData.forEach(t => {
+            if (t.dueDate) {
+              ev.push({
+                id: `task_${t.id}`, 
+                title: t.title,
+                type: 'task', 
+                date: t.dueDate,
+                priority: t.priority?.toLowerCase() || 'medium',
+                subtitle: t.status || '',
+              });
+            }
+          });
+        }
+
+        if (sRes.status === 'fulfilled') {
+          // ApiResponse paketini açıyoruz (.data.data)
+          const subsData = sRes.value.data.data || sRes.value.data;
+          
+          subsData.forEach(s => {
+            // Backend'de değişken adımız renewalDay olduğu için güncelledik
+            if (s.renewalDay) {
+              const d = new Date(curYear, curMonth, s.renewalDay);
+              ev.push({
+                id: `sub_${s.id}`, 
+                title: s.platformName,
+                type: 'subscription',
+                date: d.toISOString().split('T')[0],
+                subtitle: `Her ayın ${s.renewalDay}. günü`,
+                amount: s.amount,
+              });
+            }
+          });
+        }
+
+        setEvents(ev.length > 0 ? ev : DEMO_EVENTS);
+      } catch (error) {
+        console.error("Takvim verileri çekilirken hata:", error);
+        setEvents(DEMO_EVENTS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [curMonth, curYear]);
+
+  // ── Navigation with transition
+  const navigate = useCallback((dir) => {
+    setTrans(true);
+    setTimeout(() => {
+      setCurMonth(m => {
+        const next = m + dir;
+        if (next < 0)  { setCurYear(y => y - 1); return 11; }
+        if (next > 11) { setCurYear(y => y + 1); return 0; }
+        return next;
+      });
+      setTrans(false);
+    }, 120);
+  }, []);
+
+  const goToday = useCallback(() => {
+    setTrans(true);
+    setTimeout(() => {
+      setCurYear(today.getFullYear());
+      setCurMonth(today.getMonth());
+      setSelected(today);
+      setTrans(false);
+    }, 120);
+  }, [today]);
+
+  // ── Filter events
+  const filteredEvents = events.filter(ev =>
+    activeFilter === 'all' || ev.type === activeFilter
+  );
+
+  const getEventsForCell = useCallback((cell) => {
+    const dateStr = `${cell.year}-${String(cell.month + 1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`;
+    return filteredEvents.filter(ev => ev.date === dateStr);
+  }, [filteredEvents]);
+
+  const selectedEvents = selectedDate
+    ? filteredEvents.filter(ev => {
+        const d = new Date(selectedDate);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        return ev.date === dateStr;
+      })
+    : [];
+
+  const handleDayClick = useCallback((cell, openModal = false) => {
+    const d = new Date(cell.year, cell.month, cell.day);
+    setSelected(d);
+    if (!panelOpen) setPanelOpen(true);
+    if (openModal) { setModalDate(d); setShowModal(true); }
+  }, [panelOpen]);
+
+  const handleAddEvent = useCallback((event) => {
+    setEvents(prev => [...prev, event]);
+  }, []);
+
+  const cells = getMonthGrid(curYear, curMonth);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  // Stats
+  const monthStr = `${curYear}-${String(curMonth + 1).padStart(2,'0')}`;
+  const monthEvents   = filteredEvents.filter(ev => ev.date?.startsWith(monthStr));
+  const taskCount     = monthEvents.filter(ev => ev.type === 'task').length;
+  const subCount      = monthEvents.filter(ev => ev.type === 'subscription').length;
+  const totalPayment  = monthEvents.filter(ev => ev.amount).reduce((s, ev) => s + parseFloat(ev.amount || 0), 0);
+
+  return (
+    <div style={{
+      display: 'flex', height: '100%', fontFamily: FONT,
+      WebkitFontSmoothing: 'antialiased', color: '#d0d0e0',
+      background: '#0e0e14', overflow: 'hidden',
+    }}>
+
+      {/* ── Left Sidebar ─────────────────────────────────────────────────────── */}
+      <div style={{
+        width: 210, flexShrink: 0,
+        background: '#13131a', borderRight: '1px solid #1e1e28',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        {/* New event button */}
+        <div style={{ padding: '14px 14px 10px' }}>
+          <button
+            onClick={() => { setModalDate(selectedDate || today); setShowModal(true); }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              width: '100%', padding: '9px 0', borderRadius: 10,
+              border: '1px solid rgba(108,106,246,0.3)',
+              background: 'rgba(108,106,246,0.1)', color: '#9d9cf8',
+              cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: FONT,
+              transition: 'all 0.13s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(108,106,246,0.18)'; e.currentTarget.style.borderColor = 'rgba(108,106,246,0.45)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(108,106,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(108,106,246,0.3)'; }}
+          >
+            <IC.Plus /> Etkinlik Ekle
+          </button>
+        </div>
+
+        {/* Mini month */}
+        <MiniMonth
+          year={curYear} month={curMonth}
+          selectedDate={selectedDate}
+          onDayClick={(d) => { setSelected(d); setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); if (!panelOpen) setPanelOpen(true); }}
+        />
+
+        {/* Legend */}
+        <div style={{ flex: 1 }} />
+        <Legend />
+
+        {/* Month stats */}
+        <div style={{ padding: '10px 14px 14px', borderTop: '1px solid #1e1e28' }}>
+          <p style={{ margin: '0 0 8px', fontSize: 10.5, fontWeight: 650, color: '#35354a', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            {MONTHS[curMonth]} Özeti
+          </p>
+          {[
+            { label: 'Görev', val: taskCount,                 color: '#6c6af6' },
+            { label: 'Abonelik', val: subCount,               color: '#a855f7' },
+            { label: 'Toplam Ödeme', val: `₺${totalPayment.toFixed(0)}`, color: '#10b981' },
+          ].map(({ label, val, color }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 12, color: '#45455a' }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color }}>{val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main area ────────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+
+        {/* Top Navigation Bar */}
+        <header style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '13px 20px 12px',
+          borderBottom: '1px solid #1e1e28',
+          flexShrink: 0, flexWrap: 'wrap', rowGap: 8,
+        }}>
+          {/* Month / year title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <h1 style={{
+              margin: 0, fontSize: 20, fontWeight: 700,
+              color: '#e0e0ee', letterSpacing: '-0.025em', lineHeight: 1,
+            }}>
+              {MONTHS[curMonth]}
+            </h1>
+            <span style={{ fontSize: 18, fontWeight: 300, color: '#35354a' }}>
+              {curYear}
+            </span>
+          </div>
+
+          {/* Prev / Today / Next */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {[
+              { label: <IC.ChevLeft />,  fn: () => navigate(-1) },
+              { label: 'Bugün',           fn: goToday },
+              { label: <IC.ChevRight />, fn: () => navigate(1) },
+            ].map((b, i) => (
+              <button key={i} className="cal-nav-btn" onClick={b.fn}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: typeof b.label === 'string' ? '5px 12px' : '5px 8px',
+                  borderRadius: 8, border: '1px solid #252530', background: 'transparent',
+                  color: '#9090a0', cursor: 'pointer', fontSize: 12.5, fontWeight: 500,
+                  fontFamily: FONT, transition: 'all 0.12s ease', whiteSpace: 'nowrap',
+                }}>
+                {b.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Filter chips */}
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {[{ id: 'all', label: 'Tümü' }, ...Object.entries(EVENT_TYPES).map(([k, v]) => ({ id: k, label: v.label }))].map(f => (
+              <button key={f.id} className={`cal-pill-btn ${activeFilter === f.id ? 'active' : ''}`}
+                onClick={() => setFilter(f.id)}
+                style={{
+                  padding: '4px 10px', borderRadius: 6,
+                  border: `1px solid ${activeFilter === f.id ? 'rgba(108,106,246,0.35)' : '#252530'}`,
+                  background: activeFilter === f.id ? '#252535' : 'transparent',
+                  color: activeFilter === f.id ? '#9d9cf8' : '#55556a',
+                  cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: FONT, transition: 'all 0.12s ease',
+                }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Right actions */}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button onClick={() => setPanelOpen(v => !v)} className="cal-nav-btn"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8,
+                border: `1px solid ${panelOpen ? 'rgba(108,106,246,0.3)' : '#252530'}`,
+                background: panelOpen ? 'rgba(108,106,246,0.08)' : 'transparent',
+                color: panelOpen ? '#9d9cf8' : '#9090a0', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: FONT,
+              }}>
+              <IC.Calendar /> Panel
+            </button>
+          </div>
+        </header>
+
+        {/* Calendar grid + day panel */}
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+          {/* Grid */}
+          <div style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            overflow: 'hidden', minWidth: 0,
+            opacity: transitioning ? 0 : 1, transition: 'opacity 0.12s ease',
+          }}>
+            {/* Day headers */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(7,1fr)',
+              borderBottom: '1px solid #1e1e28', flexShrink: 0,
+            }}>
+              {DAYS_SHORT.map((d, i) => (
+                <div key={i} style={{
+                  padding: '9px 10px', fontSize: 11.5, fontWeight: 650,
+                  color: i >= 5 ? '#3a3a4a' : '#45455a',
+                  textAlign: 'center', borderRight: i < 6 ? '1px solid #1e1e28' : 'none',
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Weeks */}
+            <div className="cal-scroll" style={{ flex: 1, overflowY: 'auto' }}>
+              {loading ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
+                  {Array.from({ length: 42 }).map((_, i) => (
+                    <div key={i} style={{ minHeight: 90, padding: 8, borderRight: '1px solid #1e1e28', borderBottom: '1px solid #1e1e28' }}>
+                      <Skeleton w={24} h={24} r={12} />
+                      <div style={{ marginTop: 6 }}><Skeleton h={14} r={5} /></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                weeks.map((week, wi) => (
+                  <div key={wi} className="cal-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', animationDelay: `${wi * 28}ms` }}>
+                    {week.map((cell, ci) => (
+                      <DayCell
+                        key={`${cell.year}-${cell.month}-${cell.day}`}
+                        cell={cell}
+                        events={getEventsForCell(cell)}
+                        selected={selectedDate}
+                        onClick={handleDayClick}
+                        onEventClick={(ev) => {
+                          setSelected(new Date(ev.date + 'T00:00:00'));
+                          setPanelOpen(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Day detail panel */}
+          {panelOpen && (
+            <DayPanel
+              date={selectedDate}
+              events={selectedEvents}
+              onClose={() => setPanelOpen(false)}
+              onAdd={() => { setModalDate(selectedDate); setShowModal(true); }}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ── Event Modal ───────────────────────────────────────────────────────── */}
+      {showModal && (
+        <EventModal
+          date={modalDate}
+          onClose={() => setShowModal(false)}
+          onSave={handleAddEvent}
+        />
+      )}
+    </div>
+  );
 }
+
+// ─── Demo Events (fallback) ───────────────────────────────────────────────────
+const pad = (n) => String(n).padStart(2, '0');
+const Y = new Date().getFullYear();
+const M = new Date().getMonth() + 1;
+
+const DEMO_EVENTS = [
+  { id: 'de1', title: 'API entegrasyonu tamamla', type: 'task',         date: `${Y}-${pad(M)}-08`, priority: 'high'   },
+  { id: 'de2', title: 'Dashboard tasarımı',        type: 'task',         date: `${Y}-${pad(M)}-10`, priority: 'urgent' },
+  { id: 'de3', title: 'Netflix',                   type: 'subscription', date: `${Y}-${pad(M)}-15`, amount: 250, subtitle: 'Her ayın 15. günü' },
+  { id: 'de4', title: 'Spotify',                   type: 'subscription', date: `${Y}-${pad(M)}-05`, amount: 85,  subtitle: 'Her ayın 5. günü'  },
+  { id: 'de5', title: 'Kullanıcı testleri',        type: 'task',         date: `${Y}-${pad(M)}-20`, priority: 'medium' },
+  { id: 'de6', title: 'YouTube Premium',           type: 'subscription', date: `${Y}-${pad(M)}-22`, amount: 60,  subtitle: 'Her ayın 22. günü' },
+  { id: 'de7', title: 'Dokümantasyon güncelle',    type: 'note',         date: `${Y}-${pad(M)}-18`, priority: 'low'    },
+  { id: 'de8', title: 'Sunucu maliyeti',            type: 'payment',      date: `${Y}-${pad(M)}-01`, amount: 450 },
+  { id: 'de9', title: 'Kullanıcı testleri planla', type: 'task',         date: `${Y}-${pad(M)}-${pad(new Date().getDate())}`, priority: 'medium' },
+];
