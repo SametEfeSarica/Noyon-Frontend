@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import api from "../api/axiosInstance";
 
 // ── Icons (inline SVG helpers) ────────────────────────────────────────────────
 const Icon = ({ d, size = 16, className = "" }) => (
@@ -22,19 +21,41 @@ const icons = {
   star:        "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
   x:           "M18 6L6 18M6 6l12 12",
   check:       "M20 6L9 17l-5-5",
+  edit:        "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+  trash:       "M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
 };
 
-// ── Sabit Kategoriler ─────────────────────────────────────────────────────────
-const CATEGORIES = [
-  { id: "all",         label: "Tümü",         color: "#a78bfa" },
-  { id: "design",      label: "Design",       color: "#34d399" },
-  { id: "engineering", label: "Engineering",  color: "#60a5fa" },
-  { id: "productivity",label: "Productivity", color: "#f59e0b" },
-  { id: "philosophy",  label: "Philosophy",   color: "#f87171" },
-  { id: "business",    label: "Business",     color: "#fb923c" },
+// ── localStorage helpers ──────────────────────────────────────────────────────
+const LS_BOOKS = "library_books";
+const LS_CATS  = "library_categories";
+
+function loadBooks() {
+  try { return JSON.parse(localStorage.getItem(LS_BOOKS)) || []; }
+  catch { return []; }
+}
+
+function saveBooks(books) {
+  localStorage.setItem(LS_BOOKS, JSON.stringify(books));
+}
+
+const DEFAULT_CATEGORIES = [
+  { id: "design",       label: "Design",       color: "#34d399" },
+  { id: "engineering",  label: "Engineering",  color: "#60a5fa" },
+  { id: "productivity", label: "Productivity", color: "#f59e0b" },
+  { id: "philosophy",   label: "Philosophy",   color: "#f87171" },
+  { id: "business",     label: "Business",     color: "#fb923c" },
 ];
 
-// ── Tema Renkleri (Kitap Ekleme için) ─────────────────────────────────────────
+function loadCategories() {
+  try { return JSON.parse(localStorage.getItem(LS_CATS)) || DEFAULT_CATEGORIES; }
+  catch { return DEFAULT_CATEGORIES; }
+}
+
+function saveCategories(cats) {
+  localStorage.setItem(LS_CATS, JSON.stringify(cats));
+}
+
+// ── Tema Renkleri ─────────────────────────────────────────────────────────────
 const BOOK_THEMES = [
   { id: 'purple', color: ['#a855f7', '#7e22ce'], accent: '#c084fc', spine: '#6b21a8' },
   { id: 'green',  color: ['#34d399', '#059669'], accent: '#6ee7b7', spine: '#047857' },
@@ -43,6 +64,8 @@ const BOOK_THEMES = [
   { id: 'red',    color: ['#f87171', '#dc2626'], accent: '#fca5a5', spine: '#b91c1c' },
   { id: 'dark',   color: ['#3f3f46', '#18181b'], accent: '#71717a', spine: '#09090b' },
 ];
+
+const CAT_COLORS = ["#34d399","#60a5fa","#f59e0b","#f87171","#fb923c","#a78bfa","#e879f9","#22d3ee","#84cc16","#f43f5e"];
 
 // ── Shared Modal Styles ───────────────────────────────────────────────────────
 const inputStyle = {
@@ -55,52 +78,191 @@ const labelStyle = {
   textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6,
 };
 
+// ── Category Manager Modal ────────────────────────────────────────────────────
+function CategoryManagerModal({ categories, onClose, onSave }) {
+  const [cats, setCats] = useState(categories.map(c => ({ ...c })));
+  const [newLabel, setNewLabel] = useState("");
+  const [newColor, setNewColor] = useState(CAT_COLORS[0]);
+  const [editingId, setEditingId] = useState(null);
+  const [editLabel, setEditLabel] = useState("");
+
+  const addCategory = () => {
+    const label = newLabel.trim();
+    if (!label) return;
+    const id = label.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "") + "_" + Date.now();
+    setCats(prev => [...prev, { id, label, color: newColor }]);
+    setNewLabel("");
+    setNewColor(CAT_COLORS[Math.floor(Math.random() * CAT_COLORS.length)]);
+  };
+
+  const deleteCategory = (id) => {
+    setCats(prev => prev.filter(c => c.id !== id));
+  };
+
+  const startEdit = (cat) => {
+    setEditingId(cat.id);
+    setEditLabel(cat.label);
+  };
+
+  const saveEdit = (id) => {
+    const label = editLabel.trim();
+    if (!label) { setEditingId(null); return; }
+    setCats(prev => prev.map(c => c.id === id ? { ...c, label } : c));
+    setEditingId(null);
+  };
+
+  const updateColor = (id, color) => {
+    setCats(prev => prev.map(c => c.id === id ? { ...c, color } : c));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      
+      <div className="w-full max-w-md rounded-2xl flex flex-col shadow-2xl"
+        style={{ background: '#16161e', border: '1px solid #252530', maxHeight: '85vh' }}>
+        
+        <div className="px-5 py-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: '#1e1e26' }}>
+          <h2 className="text-[15px] font-semibold text-gray-200">Kategorileri Yönet</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
+            <Icon d={icons.x} size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto flex flex-col gap-4">
+          {/* Mevcut kategoriler */}
+          <div className="flex flex-col gap-2">
+            {cats.map(cat => (
+              <div key={cat.id} className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                style={{ background: '#0e0e14', border: '1px solid #252530' }}>
+                
+                {/* Renk seçici */}
+                <div className="relative group/color flex-shrink-0">
+                  <div className="w-5 h-5 rounded-full cursor-pointer border-2"
+                    style={{ background: cat.color, borderColor: cat.color + '88' }} />
+                  <div className="absolute left-0 top-7 z-10 hidden group-hover/color:flex flex-wrap gap-1 p-2 rounded-lg shadow-xl"
+                    style={{ background: '#1e1e2c', border: '1px solid #252535', width: 120 }}>
+                    {CAT_COLORS.map(c => (
+                      <button key={c} onClick={() => updateColor(cat.id, c)}
+                        className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110"
+                        style={{ background: c, borderColor: cat.color === c ? 'white' : 'transparent' }} />
+                    ))}
+                  </div>
+                </div>
+
+                {editingId === cat.id ? (
+                  <input
+                    autoFocus
+                    value={editLabel}
+                    onChange={e => setEditLabel(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(cat.id); if (e.key === 'Escape') setEditingId(null); }}
+                    onBlur={() => saveEdit(cat.id)}
+                    className="flex-1 text-sm text-white bg-transparent outline-none border-b"
+                    style={{ borderColor: '#7c3aed' }}
+                  />
+                ) : (
+                  <span className="flex-1 text-sm text-gray-200">{cat.label}</span>
+                )}
+
+                <div className="flex items-center gap-1">
+                  <button onClick={() => startEdit(cat)} className="text-gray-600 hover:text-gray-300 transition-colors p-1">
+                    <Icon d={icons.edit} size={13} />
+                  </button>
+                  <button onClick={() => deleteCategory(cat.id)} className="text-gray-600 hover:text-red-400 transition-colors p-1">
+                    <Icon d={icons.trash} size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Yeni kategori ekle */}
+          <div className="pt-2 border-t" style={{ borderColor: '#1e1e26' }}>
+            <label style={labelStyle}>Yeni Kategori</label>
+            <div className="flex items-center gap-2">
+              <div className="relative group/newcolor flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg cursor-pointer border"
+                  style={{ background: newColor, borderColor: newColor + '88' }} />
+                <div className="absolute left-0 top-9 z-10 hidden group-hover/newcolor:flex flex-wrap gap-1 p-2 rounded-lg shadow-xl"
+                  style={{ background: '#1e1e2c', border: '1px solid #252535', width: 120 }}>
+                  {CAT_COLORS.map(c => (
+                    <button key={c} onClick={() => setNewColor(c)}
+                      className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110"
+                      style={{ background: c, borderColor: newColor === c ? 'white' : 'transparent' }} />
+                  ))}
+                </div>
+              </div>
+              <input
+                value={newLabel}
+                onChange={e => setNewLabel(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addCategory(); }}
+                placeholder="Kategori adı..."
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button onClick={addCategory} disabled={!newLabel.trim()}
+                className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-40 transition-colors flex-shrink-0"
+                style={{ background: '#7c3aed' }}>
+                Ekle
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t flex justify-end gap-3 shrink-0" style={{ borderColor: '#1e1e26' }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-[13px] font-medium text-gray-400 hover:text-white transition-colors"
+            style={{ background: 'transparent', border: '1px solid #2a2a36' }}>
+            İptal
+          </button>
+          <button onClick={() => { onSave(cats); onClose(); }}
+            className="px-5 py-2 rounded-lg text-[13px] font-semibold text-white"
+            style={{ background: '#7c3aed' }}>
+            Kaydet
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Add Book Modal Component ──────────────────────────────────────────────────
-function AddBookModal({ onClose, onAdd }) {
+function AddBookModal({ categories, onClose, onAdd }) {
   const [form, setForm] = useState({
-    title: '', author: '', category: 'design',
+    title: '', author: '', category: categories[0]?.id || '',
     pages: '', currentPage: '', cover: '', description: '',
     year: new Date().getFullYear(), theme: BOOK_THEMES[0]
   });
-  const [loading, setLoading] = useState(false);
 
   const update = (field, val) => setForm(p => ({ ...p, [field]: val }));
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!form.title.trim() || !form.author.trim() || !form.pages) return;
-    setLoading(true);
 
-    try {
-      const totalP = parseInt(form.pages) || 1;
-      const currP = parseInt(form.currentPage) || 0;
-      const progress = Math.min(100, Math.max(0, Math.round((currP / totalP) * 100)));
+    const totalP = parseInt(form.pages) || 1;
+    const currP  = parseInt(form.currentPage) || 0;
+    const progress = Math.min(100, Math.max(0, Math.round((currP / totalP) * 100)));
+    const cat = categories.find(c => c.id === form.category);
 
-      const payload = {
-        title: form.title,
-        author: form.author,
-        category: form.category,
-        pages: totalP,
-        progress: progress,
-        cover: form.cover.substring(0, 2).toUpperCase() || form.title.substring(0, 1).toUpperCase(),
-        description: form.description,
-        year: parseInt(form.year) || new Date().getFullYear(),
-        colorStart: form.theme.color[0],
-        colorEnd: form.theme.color[1],
-        accent: form.theme.accent,
-        spine: form.theme.spine,
-        tags: [CATEGORIES.find(c => c.id === form.category)?.label || form.category],
-        rating: 0
-      };
+    const newBook = {
+      id: "book_" + Date.now(),
+      title: form.title,
+      author: form.author,
+      category: form.category,
+      pages: totalP,
+      progress,
+      cover: form.cover.substring(0, 2).toUpperCase() || form.title.substring(0, 2).toUpperCase(),
+      description: form.description,
+      year: parseInt(form.year) || new Date().getFullYear(),
+      color: form.theme.color,
+      accent: form.theme.accent,
+      spine: form.theme.spine,
+      tags: [cat?.label || form.category],
+      rating: 0,
+      isFavorite: false,
+    };
 
-      const res = await api.post("/api/library", payload);
-      onAdd(res.data.data || res.data);
-      onClose();
-    } catch (err) {
-      console.error("Kitap eklenemedi:", err);
-      alert("Kitap eklenirken bir hata oluştu!");
-    } finally {
-      setLoading(false);
-    }
+    onAdd(newBook);
+    onClose();
   };
 
   return (
@@ -111,7 +273,6 @@ function AddBookModal({ onClose, onAdd }) {
       <div className="w-full max-w-lg rounded-2xl flex flex-col shadow-2xl"
         style={{ background: '#16161e', border: '1px solid #252530', maxHeight: '90vh' }}>
         
-        {/* Header */}
         <div className="px-5 py-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: '#1e1e26' }}>
           <h2 className="text-[15px] font-semibold text-gray-200">Yeni Kitap Ekle</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
@@ -119,7 +280,6 @@ function AddBookModal({ onClose, onAdd }) {
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-5 overflow-y-auto flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
@@ -133,7 +293,7 @@ function AddBookModal({ onClose, onAdd }) {
             <div className="col-span-2 sm:col-span-1">
               <label style={labelStyle}>Kategori</label>
               <select value={form.category} onChange={e => update('category', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                {CATEGORIES.filter(c => c.id !== 'all').map(c => (
+                {categories.map(c => (
                   <option key={c.id} value={c.id}>{c.label}</option>
                 ))}
               </select>
@@ -182,13 +342,14 @@ function AddBookModal({ onClose, onAdd }) {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 border-t flex justify-end gap-3 shrink-0" style={{ borderColor: '#1e1e26' }}>
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-[13px] font-medium text-gray-400 hover:text-white transition-colors" style={{ background: 'transparent', border: '1px solid #2a2a36' }}>
             İptal
           </button>
-          <button onClick={handleSubmit} disabled={!form.title || !form.author || !form.pages || loading} className="px-5 py-2 rounded-lg text-[13px] font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: '#7c3aed' }}>
-            {loading ? "Ekleniyor..." : "Kitabı Ekle"}
+          <button onClick={handleSubmit} disabled={!form.title || !form.author || !form.pages}
+            className="px-5 py-2 rounded-lg text-[13px] font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: '#7c3aed' }}>
+            Kitabı Ekle
           </button>
         </div>
       </div>
@@ -201,8 +362,7 @@ function SkeletonCard() {
   return (
     <div className="relative rounded-2xl overflow-hidden animate-pulse"
       style={{ height: "260px", background: "#111119", border: "1px solid #1e1e2c" }}>
-      <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl"
-        style={{ background: "#1e1e2c" }} />
+      <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl" style={{ background: "#1e1e2c" }} />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4">
         <div className="w-14 h-14 rounded-xl" style={{ background: "#1e1e2c" }} />
         <div className="w-full space-y-2">
@@ -467,57 +627,64 @@ function ShelfRow({ books, favorites, onToggleFavorite }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Library() {
   const [books,          setBooks]          = useState([]);
+  const [categories,     setCategories]     = useState([]);
   const [loading,        setLoading]        = useState(true);
-  const [error,          setError]          = useState(null);
   const [activeCategory, setActiveCategory] = useState("all");
   const [favorites,      setFavorites]      = useState(new Set());
   const [search,         setSearch]         = useState("");
   const [view,           setView]           = useState("grid");
   const [showFavOnly,    setShowFavOnly]    = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
+  // ── İlk yükleme: localStorage'dan oku ──────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-    const fetchBooks = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await api.get("/api/library");
-        if (cancelled) return;
-        const data = Array.isArray(res.data?.data) ? res.data.data : [];
-        setBooks(data);
-        const favIds = new Set(data.filter(b => b.isFavorite).map(b => b.id));
-        setFavorites(favIds);
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Kitaplar yüklenemedi:", err);
-          setError("Kitaplar yüklenirken bir hata oluştu.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetchBooks();
-    return () => { cancelled = true; };
+    const storedBooks = loadBooks();
+    const storedCats  = loadCategories();
+    setBooks(storedBooks);
+    setCategories(storedCats);
+    const favIds = new Set(storedBooks.filter(b => b.isFavorite).map(b => b.id));
+    setFavorites(favIds);
+    setLoading(false);
   }, []);
 
-  const toggleFavorite = useCallback(async (id) => {
+  // ── Kitap ekle ──────────────────────────────────────────────────────────────
+  const handleAddBook = useCallback((newBook) => {
+    setBooks(prev => {
+      const updated = [...prev, newBook];
+      saveBooks(updated);
+      return updated;
+    });
+  }, []);
+
+  // ── Favori toggle ────────────────────────────────────────────────────────────
+  const toggleFavorite = useCallback((id) => {
     setFavorites(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+
+      // localStorage'daki kitabın isFavorite alanını da güncelle
+      const storedBooks = loadBooks();
+      const updated = storedBooks.map(b =>
+        b.id === id ? { ...b, isFavorite: next.has(id) } : b
+      );
+      saveBooks(updated);
+
       return next;
     });
-    try {
-      await api.patch(`/api/library/${id}/favorite`);
-    } catch (err) {
-      console.error("Favori güncellenemedi, geri alınıyor:", err);
-      setFavorites(prev => {
-        const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
-        return next;
-      });
-    }
   }, []);
+
+  // ── Kategori kaydet ──────────────────────────────────────────────────────────
+  const handleSaveCategories = useCallback((newCats) => {
+    setCategories(newCats);
+    saveCategories(newCats);
+    // Eğer aktif kategori silindiyse "all"e dön
+    if (!newCats.find(c => c.id === activeCategory)) {
+      setActiveCategory("all");
+    }
+  }, [activeCategory]);
+
+  const allCategories = [{ id: "all", label: "Tümü", color: "#a78bfa" }, ...categories];
 
   const safeBooks = books || [];
 
@@ -533,7 +700,7 @@ export default function Library() {
     return true;
   });
 
-  const shelfGroups = CATEGORIES.slice(1).map(cat => ({
+  const shelfGroups = categories.map(cat => ({
     ...cat,
     books: safeBooks.filter(b => b.category === cat.id),
   }));
@@ -556,7 +723,6 @@ export default function Library() {
       {/* ── Header ── */}
       <header className="px-6 py-5 border-b flex-shrink-0" style={{ background: "#09090b", borderColor: "#1e1e2c" }}>
         
-        {/* Üst Satır: Başlık ve Butonlar */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
@@ -589,6 +755,17 @@ export default function Library() {
               ))}
             </div>
 
+            {/* Kategori Yönet Butonu */}
+            <button
+              onClick={() => setIsCatModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border border-transparent"
+              style={{ background: "#1e1e28", color: "#9090a0", borderColor: "#252530" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#252535"; e.currentTarget.style.color = "#c0c0d0"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#1e1e28"; e.currentTarget.style.color = "#9090a0"; }}>
+              <Icon d={icons.folder} size={14} />
+              Kategoriler
+            </button>
+
             {/* Yeni Ekle Butonu */}
             <button 
               onClick={() => setIsAddModalOpen(true)}
@@ -602,9 +779,8 @@ export default function Library() {
           </div>
         </div>
 
-        {/* Alt Satır: Arama ve Filtre Hapları (Pills) */}
+        {/* Arama ve Filtre */}
         <div className="flex items-center gap-3">
-          {/* Arama Input */}
           <div className="relative w-64 flex-shrink-0">
             <Icon d={icons.search} size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -621,9 +797,8 @@ export default function Library() {
             )}
           </div>
 
-          {/* Kategori ve Favoriler Filtresi */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-            {CATEGORIES.map(cat => {
+            {allCategories.map(cat => {
               const isActive = activeCategory === cat.id;
               return (
                 <button key={cat.id} onClick={() => setActiveCategory(cat.id)}
@@ -660,20 +835,7 @@ export default function Library() {
 
       {/* ── Main ── */}
       <main className="flex-1 overflow-y-auto px-6 py-5">
-        {error && !loading && (
-          <div className="flex flex-col items-center justify-center h-64 text-red-400">
-            <Icon d={icons.x} size={32} className="mb-3 opacity-50" />
-            <p className="text-sm">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-3 text-xs px-3 py-1.5 rounded-lg"
-              style={{ background: "#1e1e2c", color: "#9ca3af" }}>
-              Yeniden Dene
-            </button>
-          </div>
-        )}
-
-        {loading && !error && (
+        {loading && (
           view === "list" ? (
             <div className="space-y-2">
               {Array.from({ length: 6 }).map((_, i) => <SkeletonList key={i} />)}
@@ -686,7 +848,7 @@ export default function Library() {
           )
         )}
 
-        {!loading && !error && (
+        {!loading && (
           filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-600">
               <Icon d={icons.book} size={32} className="mb-3 opacity-30" />
@@ -796,14 +958,22 @@ export default function Library() {
         </div>
       </footer>
 
-      {/* ── Add Book Modal Rendering ── */}
+      {/* ── Modals ── */}
       {isAddModalOpen && (
-        <AddBookModal 
-          onClose={() => setIsAddModalOpen(false)} 
-          onAdd={(newBook) => setBooks(prev => [...prev, newBook])} 
+        <AddBookModal
+          categories={categories}
+          onClose={() => setIsAddModalOpen(false)}
+          onAdd={handleAddBook}
         />
       )}
 
+      {isCatModalOpen && (
+        <CategoryManagerModal
+          categories={categories}
+          onClose={() => setIsCatModalOpen(false)}
+          onSave={handleSaveCategories}
+        />
+      )}
     </div>
   );
 }

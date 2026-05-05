@@ -2,9 +2,10 @@ import api from './axiosInstance';
 
 export const noteApi = {
   getAll: async (page = 0, size = 20) => {
-    const res = await api.get('/api/notes', { params: { page, size, sort: 'updatedAt,desc' } });
-    // BÜYÜK DÜZELTME: Backend'in gönderdiği ApiResponse paketinin içindeki 'data' listesini çıkarıyoruz
-    return res.data.data; 
+    const res = await api.get('/api/notes', {
+      params: { page, size, sort: 'updatedAt,desc' }
+    });
+    return res.data.data;
   },
 
   getTrash: async () => {
@@ -13,7 +14,9 @@ export const noteApi = {
   },
 
   search: async (keyword) => {
-    const res = await api.get('/api/notes/search', { params: { keyword } });
+    const res = await api.get('/api/notes/search', {
+      params: { keyword }
+    });
     return res.data.data;
   },
 
@@ -29,8 +32,7 @@ export const noteApi = {
 
   softDelete: async (id) => {
     const res = await api.delete(`/api/notes/${id}`);
-    // Silme işleminde genelde sadece mesaj veya boş data döneriz, bu yüzden düz bırakıyoruz
-    return res.data; 
+    return res.data.data;
   },
 
   restore: async (id) => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import ReactDOM from 'react-dom';
 import api from '../api/axiosInstance';
 
 // ─── SVG Icon Components ──────────────────────────────────────────────────────
@@ -42,6 +43,11 @@ const IconCheck = ({ size = 13 }) => (
     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
   </svg>
 );
+const IconFolder = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+  </svg>
+);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PRIORITIES = [
@@ -58,6 +64,8 @@ const AVATAR_COLORS = [
   { bg: 'rgba(244,114,182,0.20)', text: '#f472b6' },
   { bg: 'rgba(34,211,238,0.20)',  text: '#22d3ee' },
 ];
+
+const WORKSPACE_COLORS = ['#6c6af6','#22c55e','#f97316','#ef4444','#eab308','#06b6d4','#ec4899','#8b5cf6'];
 
 // ─── Utility Helpers ──────────────────────────────────────────────────────────
 const getPriority = (id) => PRIORITIES.find(p => p.id === id) || PRIORITIES[2];
@@ -83,7 +91,6 @@ const formatDate = (dateStr) => {
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 const Avatar = memo(({ member, size = 22 }) => {
   if (!member) return null;
-  // member = { id, name, initials } — API'den gelen AssigneeDto
   const colors = getMemberColor(member.id, [member]);
   return (
     <div
@@ -349,8 +356,9 @@ const Column = memo(({ column, onAddCard, onEditCard, onDeleteCard, onEditColumn
   }, [menuOpen]);
 
   const handleSubmitCard = () => {
-    if (!newCardTitle.trim()) { setAddingCard(false); return; }
-    onAddCard(column.id, newCardTitle.trim());
+    const trimmed = newCardTitle.trim();
+    if (!trimmed) { setAddingCard(false); return; }
+    onAddCard(column.id, trimmed);
     setNewCardTitle('');
     setAddingCard(false);
   };
@@ -452,7 +460,7 @@ const CardModal = ({ card, columnId, columns, members, onSave, onClose }) => {
     description: card?.description || '',
     priority: card?.priority || 'medium',
     dueDate: card?.dueDate || '',
-    assignees: (card?.assignees || []).map(a => a.id),  // id listesi tutuyoruz
+    assignees: (card?.assignees || []).map(a => a.id),
     labels: card?.labels || [],
     checklist: card?.checklist || [],
   });
@@ -474,7 +482,6 @@ const CardModal = ({ card, columnId, columns, members, onSave, onClose }) => {
 
   const handleSave = () => {
     if (!form.title.trim()) return;
-    // API'ye gönderilecek payload
     onSave({
       ...form,
       columnId: targetCol,
@@ -526,7 +533,6 @@ const CardModal = ({ card, columnId, columns, members, onSave, onClose }) => {
             </div>
           </div>
 
-          {/* Assignees — API'den gelen members listesi */}
           <div>
             <label style={labelStyle}>Atananlar</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -543,7 +549,6 @@ const CardModal = ({ card, columnId, columns, members, onSave, onClose }) => {
             </div>
           </div>
 
-          {/* Labels */}
           <div>
             <label style={labelStyle}>Etiketler</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -560,7 +565,6 @@ const CardModal = ({ card, columnId, columns, members, onSave, onClose }) => {
             </div>
           </div>
 
-          {/* Checklist */}
           <div>
             <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>Kontrol Listesi</span>
@@ -636,12 +640,243 @@ const ColumnModal = ({ column, onSave, onClose }) => {
   );
 };
 
+// ─── Workspace Modal ──────────────────────────────────────────────────────────
+const WorkspaceModal = ({ workspace, onSave, onClose }) => {
+  const [name, setName] = useState(workspace?.name || '');
+  const [color, setColor] = useState(workspace?.color || '#6c6af6');
+ 
+  const content = (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16, background: 'rgba(0,0,0,0.65)',
+        backdropFilter: 'blur(4px)', animation: 'fadeIn 0.15s ease',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        width: '100%', maxWidth: 360, background: '#16161e',
+        border: '1px solid #252530', borderRadius: 16, overflow: 'hidden',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
+        animation: 'scaleIn 0.15s cubic-bezier(0.34,1.2,0.64,1)',
+      }}>
+        <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #1e1e26', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#d8d8e0' }}>
+            {workspace ? 'Çalışma Alanını Düzenle' : 'Yeni Çalışma Alanı'}
+          </span>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: '#55556a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconX size={14} />
+          </button>
+        </div>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={labelStyle}>Çalışma Alanı Adı</label>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Örn: Pazarlama, Geliştirme..."
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === 'Enter' && name.trim()) { onSave({ name: name.trim(), color }); onClose(); }
+                if (e.key === 'Escape') onClose();
+              }}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Renk</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {WORKSPACE_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    border: color === c ? '2.5px solid white' : '2px solid transparent',
+                    background: c, cursor: 'pointer', padding: 0,
+                    boxShadow: color === c ? `0 0 0 2px ${c}50` : 'none',
+                    transition: 'all 0.12s ease',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: '0 20px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ ...smallBtnStyle, padding: '7px 16px' }}>İptal</button>
+          <button
+            onClick={() => { if (name.trim()) { onSave({ name: name.trim(), color }); onClose(); } }}
+            disabled={!name.trim()}
+            style={{
+              padding: '7px 16px', borderRadius: 8, border: 'none',
+              background: name.trim() ? '#6c6af6' : '#2a2a36',
+              color: name.trim() ? 'white' : '#45455a',
+              cursor: name.trim() ? 'pointer' : 'not-allowed',
+              fontSize: 13, fontWeight: 550,
+            }}
+          >
+            {workspace ? 'Güncelle' : 'Oluştur'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+ 
+  return ReactDOM.createPortal(content, document.body);
+};
+
+// ─── Workspace Tab Bar ────────────────────────────────────────────────────────
+const WorkspaceTabBar = ({ workspaces, activeId, onSelect, onAdd, onEdit, onDelete }) => {
+  const [menuOpenId, setMenuOpenId] = useState(null);
+  const menuRefs = useRef({});
+
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handler = (e) => {
+      if (!menuRefs.current[menuOpenId]?.contains(e.target)) setMenuOpenId(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpenId]);
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 4,
+      padding: '8px 20px 0',
+      borderBottom: '1px solid #1e1e26',
+      background: '#0e0e14',
+      overflowX: 'auto',
+      flexShrink: 0,
+    }}>
+      {workspaces.map(ws => {
+        const active = ws.id === activeId;
+        return (
+          <div
+            key={ws.id}
+            style={{ position: 'relative', flexShrink: 0 }}
+            ref={el => menuRefs.current[ws.id] = el}
+          >
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px',
+                borderRadius: '8px 8px 0 0',
+                cursor: 'pointer',
+                background: active ? '#13131a' : 'transparent',
+                borderTop: active ? '1px solid #2a2a36' : '1px solid transparent',
+                borderLeft: active ? '1px solid #2a2a36' : '1px solid transparent',
+                borderRight: active ? '1px solid #2a2a36' : '1px solid transparent',
+                borderBottom: active ? '1px solid #13131a' : '1px solid transparent',
+                marginBottom: active ? -1 : 0,
+                transition: 'all 0.12s ease',
+                userSelect: 'none',
+              }}
+              onClick={() => onSelect(ws.id)}
+            >
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: ws.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, fontWeight: active ? 600 : 450, color: active ? '#d8d8e0' : '#55556a', whiteSpace: 'nowrap' }}>
+                {ws.name}
+              </span>
+              <button
+                onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === ws.id ? null : ws.id); }}
+                style={{
+                  width: 18, height: 18, borderRadius: 4, border: 'none', background: 'transparent',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: active ? '#55556a' : 'transparent', padding: 0,
+                  transition: 'color 0.12s ease',
+                }}
+              >
+                <IconDots size={12} />
+              </button>
+            </div>
+            {menuOpenId === ws.id && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, zIndex: 150,
+                background: '#1a1a22', border: '1px solid #2e2e3a',
+                borderRadius: 9, padding: 4, minWidth: 160,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                animation: 'dropIn 0.12s ease',
+              }}>
+                <button onClick={() => { setMenuOpenId(null); onEdit(ws); }} style={menuItemStyle}><IconPencil /> Düzenle</button>
+                {workspaces.length > 1 && (
+                  <>
+                    <div style={{ height: 1, background: '#2a2a36', margin: '3px 0' }} />
+                    <button onClick={() => { setMenuOpenId(null); onDelete(ws.id); }} style={{ ...menuItemStyle, color: '#f87171' }}><IconTrash /> Sil</button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <button
+        onClick={onAdd}
+        title="Yeni çalışma alanı ekle"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '6px 10px',
+          borderRadius: '7px 7px 0 0',
+          border: '1px solid transparent',
+          background: 'transparent',
+          color: '#35354a',
+          cursor: 'pointer',
+          fontSize: 12, fontWeight: 500,
+          transition: 'all 0.12s ease',
+          flexShrink: 0,
+          marginBottom: 0,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#6c6af6'; e.currentTarget.style.background = 'rgba(108,106,246,0.06)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = '#35354a'; e.currentTarget.style.background = 'transparent'; }}
+      >
+        <IconPlus size={12} /> Yeni Alan
+      </button>
+    </div>
+  );
+};
+
 // ─── Main TaskBoard ───────────────────────────────────────────────────────────
 export default function Tasks() {
-  const [columns, setColumns] = useState([]);
-  const [members, setMembers] = useState([]);       // Proje üyeleri (AssigneeDto listesi)
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // ── Workspace state ──────────────────────────────────────────────────────────
+  const [workspaces, setWorkspaces] = useState(() => {
+    try {
+      const saved = localStorage.getItem('taskboard_workspaces');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [{ id: 1, name: 'Genel', color: '#6c6af6' }];
+  });
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
+    try {
+      const saved = localStorage.getItem('taskboard_active_workspace');
+      if (saved) return Number(saved);
+    } catch {}
+    return 1;
+  });
+  const [editingWorkspace, setEditingWorkspace] = useState(null); // null | 'new' | workspace obj
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+
+  // Persist workspaces
+  useEffect(() => {
+    try {
+      localStorage.setItem('taskboard_workspaces', JSON.stringify(workspaces));
+    } catch {}
+  }, [workspaces]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('taskboard_active_workspace', String(activeWorkspaceId));
+    } catch {}
+  }, [activeWorkspaceId]);
+
+  // ── Board state ──────────────────────────────────────────────────────────────
+const [boardByWorkspace, setBoardByWorkspace] = useState({});   // { [workspaceId]: { columns, members } }
+const [loadingWorkspaces, setLoadingWorkspaces] = useState({}); // { [workspaceId]: bool }
+const [errorWorkspaces, setErrorWorkspaces] = useState({});     // { [workspaceId]: string|null }
+ 
+// Aktif workspace'in verisi (computed):
+const columns = boardByWorkspace[activeWorkspaceId]?.columns || [];
+const members = boardByWorkspace[activeWorkspaceId]?.members || [];
+const loading  = !!loadingWorkspaces[activeWorkspaceId];
+const error    = errorWorkspaces[activeWorkspaceId] || null;
   const [draggingCardId, setDraggingCardId] = useState(null);
   const [editingCard, setEditingCard] = useState(null);
   const [editingColumn, setEditingColumn] = useState(null);
@@ -649,7 +884,7 @@ export default function Tasks() {
   const [filterPriority, setFilterPriority] = useState('all');
   const boardRef = useRef(null);
 
-  // Keyframe animasyonları — sadece bir kez inject et
+  // Keyframe animasyonları
   useEffect(() => {
     const id = 'taskboard-animations';
     if (document.getElementById(id)) return;
@@ -664,29 +899,86 @@ export default function Tasks() {
     document.head.appendChild(style);
   }, []);
 
-  // ── İlk yükleme: GET /api/board ────────────────────────────────────────────
-  useEffect(() => {
-    const fetchBoard = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await api.get('/api/board');
-        const data = res.data?.data || res.data;
-        setColumns(data.columns || []);
-        setMembers(data.members || []);
-      } catch (err) {
-        setError('Pano yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
-        console.error('Board fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBoard();
+  // ── Board fetch (workspace değişince yeniden fetch) ─────────────────────────
+useEffect(() => {
+  // Zaten yüklenmiş workspace'i tekrar fetch etme
+  if (boardByWorkspace[activeWorkspaceId]) return;
+ 
+  const fetchBoard = async () => {
+    setLoadingWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: true }));
+    setErrorWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: null }));
+    try {
+      const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
+      const data = res.data?.data || res.data;
+      setBoardByWorkspace(prev => ({
+        ...prev,
+        [activeWorkspaceId]: {
+          columns: data.columns || [],
+          members: data.members || [],
+        },
+      }));
+    } catch (err) {
+      setErrorWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: 'Pano yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.' }));
+      console.error('Board fetch error:', err);
+    } finally {
+      setLoadingWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: false }));
+    }
+  };
+  fetchBoard();
+}, [activeWorkspaceId]); // boardByWorkspace dependency'e ekleme — sonsuz döngü olur
+
+  // ── Workspace işlemleri ──────────────────────────────────────────────────────
+  const handleAddWorkspace = useCallback((data) => {
+    const newWs = { id: Date.now(), name: data.name, color: data.color };
+    setWorkspaces(prev => [...prev, newWs]);
+    setActiveWorkspaceId(newWs.id);
   }, []);
 
+  const handleEditWorkspace = useCallback((data) => {
+    setWorkspaces(prev => prev.map(ws => ws.id === editingWorkspace.id ? { ...ws, ...data } : ws));
+  }, [editingWorkspace]);
+
+const handleDeleteWorkspace = useCallback((wsId) => {
+  setWorkspaces(prev => {
+    const next = prev.filter(ws => ws.id !== wsId);
+    if (next.length === 0) return prev;
+    return next;
+  });
+  // Silinen workspace'in board cache'ini temizle
+  setBoardByWorkspace(prev => {
+    const next = { ...prev };
+    delete next[wsId];
+    return next;
+  });
+  setActiveWorkspaceId(prev => {
+    if (prev === wsId) {
+      const remaining = workspaces.filter(ws => ws.id !== wsId);
+      return remaining[0]?.id || null;
+    }
+    return prev;
+  });
+}, [workspaces]);
+
+  const handleSaveWorkspace = useCallback((data) => {
+    if (editingWorkspace === 'new') {
+      handleAddWorkspace(data);
+    } else {
+      handleEditWorkspace(data);
+    }
+  }, [editingWorkspace, handleAddWorkspace, handleEditWorkspace]);
+
+
+const setColumns = useCallback((updater) => {
+    setBoardByWorkspace(prev => {
+      const current = prev[activeWorkspaceId] || { columns: [], members: [] };
+      const nextColumns = typeof updater === 'function' ? updater(current.columns) : updater;
+      return { ...prev, [activeWorkspaceId]: { ...current, columns: nextColumns } };
+    });
+  }, [activeWorkspaceId]);
+
   // ── Kart Ekleme ─────────────────────────────────────────────────────────────
+  // BUGFIX: hata durumundaki filter callback düzeltildi (boolean dönmeli)
   const handleAddCard = useCallback(async (columnId, title) => {
-    // Optimistic UI: geçici kart hemen göster
     const tempId = `temp_${Date.now()}`;
     const tempCard = {
       id: tempId, title, description: '', priority: 'medium',
@@ -697,9 +989,8 @@ export default function Tasks() {
     ));
 
     try {
-      const res = await api.post(`/board/columns/${columnId}/cards`, { title });
+      const res = await api.post(`/api/board/columns/${columnId}/cards`, { title });
       const savedCard = res.data?.data || res.data;
-      // Geçici kartı gerçek kart ile değiştir
       setColumns(cols => cols.map(col =>
         col.id === columnId
           ? { ...col, cards: (col.cards || []).map(c => c.id === tempId ? savedCard : c) }
@@ -707,9 +998,11 @@ export default function Tasks() {
       ));
     } catch (err) {
       console.error('Kart ekleme hatası:', err);
-      // Başarısız olursa geçici kartı geri al
+      // BUGFIX: filter callback boolean döndürmeli, kart objesi değil
       setColumns(cols => cols.map(col =>
-        col.id === columnId ? { ...col, cards: (col.cards || []).filter(c => c.id !== tempId) } : col
+        col.id === columnId
+          ? { ...col, cards: (col.cards || []).filter(c => c.id !== tempId) }
+          : col
       ));
     }
   }, []);
@@ -720,12 +1013,12 @@ export default function Tasks() {
   }, []);
 
   // ── Kart Kaydetme (modal'dan) ───────────────────────────────────────────────
+  // BUGFIX: handleSaveColumn'da yanlış URL prefix düzeltildi (/api/board/... tutarlı hale getirildi)
   const handleSaveCard = useCallback(async (payload) => {
     const { cardId, originalColumnId, columnId: targetColumnId, ...formData } = payload;
     const isNew = !cardId;
 
     if (isNew) {
-      // Zaten handleAddCard'da oluşturulmuş olabilir — modal üzerinden tam kart oluşturma
       try {
         const body = {
           title: formData.title,
@@ -745,28 +1038,43 @@ export default function Tasks() {
       }
     } else {
       // Optimistic update
-      const updateFn = (cols) => cols.map(col => ({
-        ...col,
-        cards: (col.cards || []).map(c => c.id === cardId
-          ? { ...c, ...formData, assignees: members.filter(m => formData.assignees.includes(m.id)), columnId: targetColumnId }
-          : c
-        ).filter(c => {
-          // Farklı sütuna taşındıysa kaynak sütundan çıkar
-          if (c.id === cardId && col.id === originalColumnId && targetColumnId !== originalColumnId) return false;
-          return true;
-        })
-      })).map(col => {
-        // Farklı sütuna taşındıysa hedef sütuna ekle
-        if (col.id === targetColumnId && targetColumnId !== originalColumnId) {
-          const movedCard = { ...formData, id: cardId, assignees: members.filter(m => formData.assignees.includes(m.id)), columnId: targetColumnId };
-          if (!(col.cards || []).find(c => c.id === cardId)) {
-            return { ...col, cards: [...(col.cards || []), movedCard] };
-          }
-        }
-        return col;
-      });
+      const buildAssignees = (ids) => (members || []).filter(m => (ids || []).includes(m.id));
 
-      setColumns(prev => updateFn(prev));
+      setColumns(prev => {
+        // 1. Kaynak sütundan kartı çıkar (sütun değiştiyse)
+        let movedCard = null;
+        let result = prev.map(col => {
+          if (col.id === originalColumnId) {
+            const found = (col.cards || []).find(c => c.id === cardId);
+            if (found) movedCard = found;
+            if (targetColumnId !== originalColumnId) {
+              return { ...col, cards: (col.cards || []).filter(c => c.id !== cardId) };
+            }
+            // Aynı sütundaysa burada güncelle
+            return {
+              ...col,
+              cards: (col.cards || []).map(c => c.id === cardId
+                ? { ...c, ...formData, assignees: buildAssignees(formData.assignees) }
+                : c
+              ),
+            };
+          }
+          return col;
+        });
+
+        // 2. Hedef sütuna ekle (farklı sütuna taşındıysa)
+        if (targetColumnId !== originalColumnId && movedCard) {
+          const updatedCard = { ...movedCard, ...formData, assignees: buildAssignees(formData.assignees), columnId: targetColumnId };
+          result = result.map(col => {
+            if (col.id === targetColumnId) {
+              const alreadyExists = (col.cards || []).some(c => c.id === cardId);
+              return { ...col, cards: alreadyExists ? (col.cards || []).map(c => c.id === cardId ? updatedCard : c) : [...(col.cards || []), updatedCard] };
+            }
+            return col;
+          });
+        }
+        return result;
+      });
 
       try {
         const body = {
@@ -781,24 +1089,23 @@ export default function Tasks() {
         };
         const res = await api.patch(`/api/board/cards/${cardId}`, body);
         const saved = res.data?.data || res.data;
-        // Gerçek veriyle güncelle
         setColumns(cols => cols.map(col => ({
           ...col,
-          cards: (col.cards || []).map(c => c.id === cardId ? saved : c)
+          cards: (col.cards || []).map(c => c.id === cardId ? saved : c),
         })));
       } catch (err) {
         console.error('Kart güncelleme hatası:', err);
-        // Rollback: boardu yeniden yükle
-        const res = await api.get('/board');
-        const data = res.data?.data || res.data;
-        setColumns(data.columns || []);
+        try {
+          const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
+          const data = res.data?.data || res.data;
+          setColumns(data.columns || []);
+        } catch {}
       }
     }
-  }, [members]);
+  }, [members, activeWorkspaceId]);
 
   // ── Kart Silme ──────────────────────────────────────────────────────────────
   const handleDeleteCard = useCallback(async (cardId, columnId) => {
-    // Optimistic remove
     setColumns(cols => cols.map(col =>
       col.id === columnId ? { ...col, cards: (col.cards || []).filter(c => c.id !== cardId) } : col
     ));
@@ -806,20 +1113,20 @@ export default function Tasks() {
       await api.delete(`/api/board/cards/${cardId}`);
     } catch (err) {
       console.error('Kart silme hatası:', err);
-      // Rollback
-      const res = await api.get('/board');
-      const data = res.data?.data || res.data;
-      setColumns(data.columns || []);
+      try {
+        const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
+        const data = res.data?.data || res.data;
+        setColumns(data.columns || []);
+      } catch {}
     }
-  }, []);
+  }, [activeWorkspaceId]);
 
-  // ── Drag & Drop — Optimistic UI ─────────────────────────────────────────────
+  // ── Drag & Drop ─────────────────────────────────────────────────────────────
   const handleDrop = useCallback(async (e, targetColumnId) => {
     const cardId = Number(e.dataTransfer.getData('cardId'));
     const sourceColumnId = Number(e.dataTransfer.getData('sourceColumnId'));
     if (!cardId || targetColumnId === sourceColumnId) { setDraggingCardId(null); return; }
 
-    // 1. Optimistic: kartı hemen taşı
     let movedCard = null;
     setColumns(cols => {
       let result = cols.map(col => {
@@ -837,27 +1144,25 @@ export default function Tasks() {
     });
     setDraggingCardId(null);
 
-    // 2. Arka planda API'ye bildir
     try {
       const targetCards = columns.find(c => c.id === targetColumnId)?.cards || [];
-      const newPosition = targetCards.length; // Sütun sonuna ekle
       await api.patch(`/api/board/cards/${cardId}/move`, {
         targetColumnId,
-        newPosition,
+        newPosition: targetCards.length,
       });
     } catch (err) {
       console.error('Kart taşıma hatası:', err);
-      // Başarısız olursa gerçek veriyle geri dön
-      const res = await api.get('/board');
-      const data = res.data?.data || res.data;
-      setColumns(data.columns || []);
+      try {
+        const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
+        const data = res.data?.data || res.data;
+        setColumns(data.columns || []);
+      } catch {}
     }
-  }, [columns]);
+  }, [columns, activeWorkspaceId]);
 
   // ── Sütun İşlemleri ─────────────────────────────────────────────────────────
   const handleAddColumn = useCallback(async (data) => {
     const tempId = `tempcol_${Date.now()}`;
-    // Optimistic
     setColumns(cols => [...cols, { id: tempId, title: data.title, color: data.color, cards: [] }]);
     try {
       const res = await api.post('/api/board/columns', { title: data.title, color: data.color });
@@ -871,6 +1176,7 @@ export default function Tasks() {
 
   const handleEditColumn = useCallback((column) => setEditingColumn(column), []);
 
+  // BUGFIX: handleSaveColumn — sütun düzenleme URL'i /api/board/columns/... olarak düzeltildi
   const handleSaveColumn = useCallback(async (data) => {
     if (editingColumn === 'new') {
       await handleAddColumn(data);
@@ -878,30 +1184,33 @@ export default function Tasks() {
       // Optimistic
       setColumns(cols => cols.map(col => col.id === editingColumn.id ? { ...col, ...data } : col));
       try {
-        await api.patch(`/board/columns/${editingColumn.id}`, data);
+        await api.patch(`/api/board/columns/${editingColumn.id}`, data);
       } catch (err) {
         console.error('Sütun güncelleme hatası:', err);
-        const res = await api.get('/api/board');
-        const d = res.data?.data || res.data;
-        setColumns(d.columns || []);
+        try {
+          const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
+          const d = res.data?.data || res.data;
+          setColumns(d.columns || []);
+        } catch {}
       }
     }
-  }, [editingColumn, handleAddColumn]);
+  }, [editingColumn, handleAddColumn, activeWorkspaceId]);
 
   const handleDeleteColumn = useCallback(async (columnId) => {
-    // Optimistic
     setColumns(cols => cols.filter(c => c.id !== columnId));
     try {
       await api.delete(`/api/board/columns/${columnId}`);
     } catch (err) {
       console.error('Sütun silme hatası:', err);
-      const res = await api.get('/api/board');
-      const d = res.data?.data || res.data;
-      setColumns(d.columns || []);
+      try {
+        const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
+        const d = res.data?.data || res.data;
+        setColumns(d.columns || []);
+      } catch {}
     }
-  }, []);
+  }, [activeWorkspaceId]);
 
-  // ── Filtre & hesaplamalar ────────────────────────────────────────────────────
+  // ── Filtre ───────────────────────────────────────────────────────────────────
   const totalCards = (columns || []).reduce((acc, col) => acc + (col.cards || []).length, 0);
   const filteredColumns = (columns || []).map(col => ({
     ...col,
@@ -914,6 +1223,7 @@ export default function Tasks() {
     }),
   }));
   const filteredTotal = filteredColumns.reduce((acc, col) => acc + (col.cards || []).length, 0);
+  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId);
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -924,7 +1234,7 @@ export default function Tasks() {
       WebkitFontSmoothing: 'antialiased',
     }}>
       {/* Header */}
-      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #1e1e26', flexShrink: 0, background: '#0e0e14' }}>
+      <div style={{ padding: '20px 24px 14px', borderBottom: '1px solid #1e1e26', flexShrink: 0, background: '#0e0e14' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(108,106,246,0.18)', border: '1px solid rgba(108,106,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -971,7 +1281,6 @@ export default function Tasks() {
               </button>
             ))}
           </div>
-          {/* Üye avatarları — API'den gelen members */}
           <div style={{ display: 'flex', marginLeft: 'auto' }}>
             {(members || []).map((m, idx) => (
               <div key={m.id} style={{ marginLeft: idx === 0 ? 0 : -8 }}>
@@ -981,6 +1290,16 @@ export default function Tasks() {
           </div>
         </div>
       </div>
+
+      {/* Workspace Tab Bar */}
+      <WorkspaceTabBar
+        workspaces={workspaces}
+        activeId={activeWorkspaceId}
+        onSelect={setActiveWorkspaceId}
+        onAdd={() => { setEditingWorkspace('new'); setShowWorkspaceModal(true); }}
+        onEdit={(ws) => { setEditingWorkspace(ws); setShowWorkspaceModal(true); }}
+        onDelete={handleDeleteWorkspace}
+      />
 
       {/* Board */}
       {loading ? (
@@ -1034,6 +1353,13 @@ export default function Tasks() {
           column={editingColumn === 'new' ? null : editingColumn}
           onSave={handleSaveColumn}
           onClose={() => setEditingColumn(null)}
+        />
+      )}
+      {showWorkspaceModal && (
+        <WorkspaceModal
+          workspace={editingWorkspace === 'new' ? null : editingWorkspace}
+          onSave={handleSaveWorkspace}
+          onClose={() => { setShowWorkspaceModal(false); setEditingWorkspace(null); }}
         />
       )}
     </div>

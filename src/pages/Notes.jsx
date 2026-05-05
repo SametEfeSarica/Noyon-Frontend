@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-// DÜZELTME 1: Doğrudan axios yerine düzelttiğimiz noteApi dosyasını çağırıyoruz!
 import { noteApi } from '../api/noteApi'; 
 import NoteEditor from '../components/notes/NoteEditor';
 import { useAuth } from '../context/AuthContext';
 import NotesToolbar from '../components/notes/NotesToolbar';
 import NoteCard from '../components/notes/NoteCard';
-
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
-
 const SkeletonCard = ({ variant = 'grid' }) => {
   if (variant === 'list') {
     return (
@@ -46,7 +43,6 @@ const SkeletonCard = ({ variant = 'grid' }) => {
 };
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
-
 const EmptyState = ({ hasSearch, onNewNote }) => (
   <motion.div
     initial={{ opacity: 0, y: 16 }}
@@ -82,7 +78,6 @@ const EmptyState = ({ hasSearch, onNewNote }) => (
 );
 
 // ─── FOLDER → NoteCard folder prop mapper ─────────────────────────────────────
-
 const FOLDER_META = {
   'Yazılım':   { name: 'Yazılım',  emoji: '💻', color: '#6c6af6' },
   'Toplantı':  { name: 'Toplantı', emoji: '📋', color: '#34d399' },
@@ -95,41 +90,27 @@ function folderMeta(category) {
 }
 
 // ─── Notes Page ───────────────────────────────────────────────────────────────
-
 export default function Notes() {
   const { user } = useAuth();
 
-  // Data
   const [notes, setNotes]           = useState([]);
   const [isLoading, setIsLoading]   = useState(true);
-
-  // Editor
   const [selectedNote, setSelectedNote] = useState(null);
 
-  // Toolbar state
   const [searchQuery, setSearchQuery]   = useState('');
-  const [view, setView]                 = useState('grid');   // 'grid' | 'list'
+  const [view, setView]                 = useState('grid');
   const [sortBy, setSortBy]             = useState('modified');
   const [activeFilters, setActiveFilters] = useState([]);
-
-  // Sidebar-driven folder/tab filter (Artık sidebar olmadığı için hep 'Tüm Notlar' olarak kalacak, 
-  // toolbar başlığı vb. bozulmasın diye state'i muhafaza ettik)
   const [activeFolder, setActiveFolder] = useState('Tüm Notlar');
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchNotes = useCallback(async () => {
     try {
       setIsLoading(true);
-      // BÜYÜK DÜZELTME: Düzelttiğimiz API dosyasından veriyi sorunsuz çekiyoruz
       const data = await noteApi.getAll(0, 100); 
       setNotes(data || []);
     } catch (err) {
       console.error("Notlar çekilirken hata:", err);
-      // Fallback demo data when backend is offline
-      setNotes([
-        { id: 1, title: 'Proje Fikirleri',       content: 'Kütüphane uygulaması arayüz iyileştirmeleri ve yeni bileşen sistemi üzerine notlar.',  category: 'Yazılım',  favorite: true,  updatedAt: '2026-05-02T10:00:00Z' },
-        { id: 2, title: 'Haftalık Toplantı',      content: 'Backend uç noktaları kontrol edilecek. Auth akışı yeniden gözden geçirilmeli.',        category: 'Toplantı', favorite: false, updatedAt: '2026-05-01T14:30:00Z' },
-      ]);
     } finally {
       setIsLoading(false);
     }
@@ -143,24 +124,25 @@ export default function Notes() {
       id: 'new',
       title: '',
       content: '',
-      category: ['Tüm Notlar', 'Favoriler'].includes(activeFolder) ? 'Kişisel' : activeFolder,
+      folderId: null, 
+      folderName: ['Tüm Notlar', 'Favoriler'].includes(activeFolder) ? 'Kişisel' : activeFolder,
       favorite: false,
     });
   }, [activeFolder]);
 
-  const handleSaveNote = useCallback(async (updatedNoteData) => {
+const handleSaveNote = useCallback(async (updatedNoteData) => {
     try {
       if (selectedNote.id === 'new') {
-        // Düzelttiğimiz API üzerinden gönderiyoruz
-        await noteApi.create(updatedNoteData);
+        const createdNote = await noteApi.create(updatedNoteData);
+        // EKLENDİ: İlk harfi yazıp not backend'de oluştuktan sonra, 
+        // editöre backend'den gelen GERÇEK ID'yi veriyoruz ki üstüne yazmaya devam etsin.
+        setSelectedNote(createdNote); 
       } else {
         await noteApi.update(selectedNote.id, updatedNoteData);
       }
+      fetchNotes(); // Listeyi arkada sessizce yenile
     } catch (err) {
       console.error("Kaydetme hatası", err);
-    } finally {
-      setSelectedNote(null);
-      fetchNotes();
     }
   }, [selectedNote, fetchNotes]);
 
@@ -168,18 +150,23 @@ export default function Notes() {
     const noteToUpdate = notes.find(n => n.id === id);
     if (!noteToUpdate) return;
 
-    // UI'ı anında güncelle (Optimistic Update)
     setNotes(prev => prev.map(n => n.id === id ? { ...n, favorite: next } : n));
     
     try {
-      // DÜZELTME 2: Backend'imiz patch değil PUT bekliyor (UpdateNoteRequest)
-      await noteApi.update(id, { 
-        title: noteToUpdate.title || 'İsimsiz Not', // Backend title'ı NotBlank bekler
+      const updatePayload = {
+        title: noteToUpdate.title || 'İsimsiz Not',
         content: noteToUpdate.content,
-        favorite: next 
-      });
+        color: noteToUpdate.color || null,
+        folderId: noteToUpdate.folderId || null, 
+        imageUrl: noteToUpdate.imageUrl || null,
+        pdfUrl: noteToUpdate.pdfUrl || null,
+        handwritingBase64: noteToUpdate.handwritingBase64 || null,
+        pinned: noteToUpdate.pinned || false,
+        favorite: next
+      };
+
+      await noteApi.update(id, updatePayload);
     } catch {
-      // Hata olursa UI'ı eski haline geri döndür
       setNotes(prev => prev.map(n => n.id === id ? { ...n, favorite: !next } : n));
     }
   }, [notes]);
@@ -197,7 +184,7 @@ export default function Notes() {
   const filteredNotes = notes
     .filter(note => {
       if (activeFolder === 'Favoriler') return note.favorite;
-      if (activeFolder !== 'Tüm Notlar') return note.category === activeFolder;
+      if (activeFolder !== 'Tüm Notlar') return note.folderName === activeFolder; 
       return true;
     })
     .filter(note => {
@@ -207,10 +194,6 @@ export default function Notes() {
         note.title?.toLowerCase().includes(q) ||
         note.content?.replace(/<[^>]+>/g, '').toLowerCase().includes(q)
       );
-    })
-    .filter(note => {
-      if (!activeFilters.length) return true;
-      return activeFilters.every(f => note.category === f.label || note.tags?.includes(f.label));
     })
     .sort((a, b) => {
       if (sortBy === 'modified')    return new Date(b.updatedAt) - new Date(a.updatedAt);
@@ -231,19 +214,13 @@ export default function Notes() {
     );
   }
 
-  // ── Grid columns by view ───────────────────────────────────────────────────
   const gridClass = view === 'list'
     ? 'flex flex-col gap-1.5'
     : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4';
 
-  // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="flex h-full w-full overflow-hidden">
-
-      {/* ── Main content column ───────────────────────────────────────────── */}
       <div className="flex flex-1 min-w-0 flex-col h-full overflow-hidden">
-
-        {/* Toolbar */}
         <NotesToolbar
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
@@ -258,7 +235,6 @@ export default function Notes() {
           activeFolder={activeFolder}
         />
 
-        {/* Scrollable note grid */}
         <main
           className={[
             'flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 py-5',
@@ -298,20 +274,21 @@ export default function Notes() {
                     }}
                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
                   >
-                    <NoteCard
+                   <NoteCard
                       id={note.id}
                       title={note.title}
                       content={note.content?.replace(/<[^>]+>/g, '') ?? ''}
                       emoji={note.emoji ?? undefined}
                       tags={note.tags ?? []}
-                      folder={folderMeta(note.category)}
+                      folder={folderMeta(note.folderName)} 
                       isFavorited={note.favorite}
                       updatedAt={note.updatedAt}
-                      path={`/dashboard/notes/${note.id}`}
-                      accentColor={folderMeta(note.category).color}
+                      // path={/dashboard/notes/${note.id}} <-- Bu satırı artık silebilirsiniz
+                      accentColor={folderMeta(note.folderName).color}
                       variant={view}
                       onFavoriteToggle={handleFavoriteToggle}
                       onDelete={() => handleDeleteNote(note.id)}
+                      onClick={() => setSelectedNote(note)} // 3. DÜZELTME: Karta tıklandığında editörü açan sihirli komut!
                     />
                   </motion.div>
                 ))}

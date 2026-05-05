@@ -83,7 +83,7 @@ const NAV_SECTIONS = [
     label: 'Genel',
     items: [
       { name: 'Ana Sayfa',    icon: <IconHome />,         path: '/dashboard',            badge: null },
-      { name: 'Notlar',       icon: <IconNote />,         path: '/dashboard/notes',      badge: 12   },
+      { name: 'Notlar',       icon: <IconNote />,         path: '/dashboard/notes',      badge: null   },
       { name: 'Görev Takibi', icon: <IconTask />,         path: '/dashboard/gorevler',   badge: null },
       { name: 'Takvim',       icon: <IconCalendar />,     path: '/dashboard/takvim',     badge: null },
     ],

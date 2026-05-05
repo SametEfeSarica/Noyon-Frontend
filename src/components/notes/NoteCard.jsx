@@ -184,14 +184,14 @@ export default function NoteCard({
   content = '',
   emoji,
   tags = [],
-  folder,           // { name, emoji, color }
+  folder,
   isFavorited: initialFavorited = false,
   updatedAt,
-  path,
-  accentColor,      // optional per-card accent override
+  path, // Bunu silebilirsiniz artık kullanılmayacak
+  accentColor,
   onDelete,
   onFavoriteToggle,
-  // layout variant — 'grid' (default) or 'list'
+  onClick, // 1. DÜZELTME: onClick prop'unu buraya ekledik
   variant = 'grid',
 }) {
   const [favorited, setFavorited] = useState(initialFavorited);
@@ -228,13 +228,14 @@ export default function NoteCard({
   if (variant === 'grid') {
     return (
       <>
-        <Link
-          to={path ?? '#'}
+       <div
+          onClick={onClick}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           onContextMenu={handleContextMenu}
           aria-label={title}
           className={[
+            'cursor-pointer', // Tıklanabilir olduğunu belirtmek için eklendi
             'group/card relative flex flex-col rounded-2xl overflow-hidden',
             'border transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6c6af6]/50',
@@ -342,7 +343,7 @@ export default function NoteCard({
               </div>
             )}
           </div>
-        </Link>
+        </div>
 
         {ctx && (
           <ContextMenu
@@ -360,7 +361,7 @@ export default function NoteCard({
   // ── List variant ────────────────────────────────────────────────────────────
   return (
     <>
-      <Link
+      <div
         to={path ?? '#'}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -456,7 +457,7 @@ export default function NoteCard({
             <IconStar filled />
           </span>
         )}
-      </Link>
+      </div>
 
       {ctx && (
         <ContextMenu

@@ -382,7 +382,7 @@ export default function DashboardHome() {
                 <h1 className="text-2xl font-bold text-white mb-1">
                   {loading ? 'Yükleniyor...' : summary?.username || 'Kullanıcı'}
                 </h1>
-                <p className="text-xs text-gray-400 mt-0.5">Yönetici Paneli</p>
+                <p className="text-xs text-gray-400 mt-0.5">Bugün ne yapacağız?</p>
               </div>
             </div>
 

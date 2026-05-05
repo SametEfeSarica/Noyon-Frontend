@@ -240,9 +240,6 @@ function PasswordStrength({ password }) {
 const SECTIONS = [
   { id: "profile",       label: "Profil",       icon: P.user,    color: "#a78bfa" },
   { id: "account",       label: "Hesap",        icon: P.shield,  color: "#60a5fa" },
-  { id: "notifications", label: "Bildirimler",  icon: P.bell,    color: "#f59e0b" },
-  { id: "appearance",    label: "Görünüm",      icon: P.palette, color: "#f472b6" },
-  { id: "privacy",       label: "Gizlilik",     icon: P.lock,    color: "#34d399" },
 ];
 
 export default function Settings() {

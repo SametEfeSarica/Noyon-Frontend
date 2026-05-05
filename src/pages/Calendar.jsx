@@ -129,6 +129,14 @@ const IC = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const generateId = () => `ev_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
 
+// FIX 2: Timezone-safe date string oluşturucu
+const toLocalDateStr = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const getMonthGrid = (year, month) => {
   const firstDay   = new Date(year, month, 1).getDay();
   const daysInMonth= new Date(year, month + 1, 0).getDate();
@@ -151,6 +159,30 @@ const isSameDay = (a, b) =>
   a.getDate()     === b.getDate();
 
 const isToday = (year, month, day) => isSameDay(new Date(year, month, day), new Date());
+
+// FIX 2: Timezone-safe ISO string'den local Date parse eder
+const parseDateStr = (dateStr) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+const LS_KEY = 'cal_manual_events';
+
+const loadManualEvents = () => {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveManualEvents = (events) => {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(events));
+  } catch {}
+};
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = ({ w = '100%', h = 14, r = 6 }) => (
@@ -437,7 +469,8 @@ const EventModal = ({ date, onClose, onSave }) => {
     if (!form.title.trim()) return;
     onSave({
       id: generateId(), ...form,
-      date: date.toISOString().split('T')[0],
+      // FIX 2: Timezone-safe date string kullan
+      date: toLocalDateStr(date),
     });
     onClose();
   };
@@ -558,13 +591,19 @@ export default function Calendar() {
   const [curYear,  setCurYear]  = useState(today.getFullYear());
   const [curMonth, setCurMonth] = useState(today.getMonth());
   const [loading,  setLoading]  = useState(true);
-  const [events,   setEvents]   = useState([]);     // { id, title, type, date(ISO), priority?, amount?, subtitle? }
+  const [apiEvents,    setApiEvents]    = useState([]);  // API'den gelen eventler
+  const [manualEvents, setManualEvents] = useState(() => loadManualEvents()); // localStorage'dan gelen
   const [selectedDate, setSelected] = useState(today);
   const [showModal,    setShowModal] = useState(false);
   const [modalDate,    setModalDate] = useState(null);
   const [activeFilter, setFilter]   = useState('all');
   const [panelOpen,    setPanelOpen] = useState(true);
   const [transitioning, setTrans]   = useState(false);
+
+  // FIX 3: Manuel eventler değişince localStorage'a kaydet
+  useEffect(() => {
+    saveManualEvents(manualEvents);
+  }, [manualEvents]);
 
   // ── Fetch tasks + subscriptions and map to events
   useEffect(() => {
@@ -578,16 +617,14 @@ export default function Calendar() {
         const ev = [];
 
         if (tRes.status === 'fulfilled') {
-          // ApiResponse paketini açıyoruz (.data.data)
           const tasksData = tRes.value.data.data || tRes.value.data;
-          
           tasksData.forEach(t => {
             if (t.dueDate) {
               ev.push({
-                id: `task_${t.id}`, 
+                id: `task_${t.id}`,
                 title: t.title,
-                type: 'task', 
-                date: t.dueDate,
+                type: 'task',
+                date: t.dueDate.split('T')[0], // FIX 2: Sadece tarih kısmını al
                 priority: t.priority?.toLowerCase() || 'medium',
                 subtitle: t.status || '',
               });
@@ -596,18 +633,16 @@ export default function Calendar() {
         }
 
         if (sRes.status === 'fulfilled') {
-          // ApiResponse paketini açıyoruz (.data.data)
           const subsData = sRes.value.data.data || sRes.value.data;
-          
           subsData.forEach(s => {
-            // Backend'de değişken adımız renewalDay olduğu için güncelledik
             if (s.renewalDay) {
+              // FIX 2: toLocalDateStr kullan, UTC kayması olmaz
               const d = new Date(curYear, curMonth, s.renewalDay);
               ev.push({
-                id: `sub_${s.id}`, 
+                id: `sub_${s.id}`,
                 title: s.platformName,
                 type: 'subscription',
-                date: d.toISOString().split('T')[0],
+                date: toLocalDateStr(d),
                 subtitle: `Her ayın ${s.renewalDay}. günü`,
                 amount: s.amount,
               });
@@ -615,16 +650,21 @@ export default function Calendar() {
           });
         }
 
-        setEvents(ev.length > 0 ? ev : DEMO_EVENTS);
+        // FIX 1: API boş dönse bile demo event yok, boş array bırak
+        setApiEvents(ev);
       } catch (error) {
         console.error("Takvim verileri çekilirken hata:", error);
-        setEvents(DEMO_EVENTS);
+        // FIX 1: Hata durumunda da demo event yükleme
+        setApiEvents([]);
       } finally {
         setLoading(false);
       }
     };
     load();
   }, [curMonth, curYear]);
+
+  // API + manuel eventleri birleştir
+  const events = [...apiEvents, ...manualEvents];
 
   // ── Navigation with transition
   const navigate = useCallback((dir) => {
@@ -662,8 +702,7 @@ export default function Calendar() {
 
   const selectedEvents = selectedDate
     ? filteredEvents.filter(ev => {
-        const d = new Date(selectedDate);
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const dateStr = toLocalDateStr(selectedDate); // FIX 2
         return ev.date === dateStr;
       })
     : [];
@@ -675,8 +714,9 @@ export default function Calendar() {
     if (openModal) { setModalDate(d); setShowModal(true); }
   }, [panelOpen]);
 
+  // FIX 3: Yeni eventi manualEvents'e ekle, localStorage'a persist edilsin
   const handleAddEvent = useCallback((event) => {
-    setEvents(prev => [...prev, event]);
+    setManualEvents(prev => [...prev, event]);
   }, []);
 
   const cells = getMonthGrid(curYear, curMonth);
@@ -812,7 +852,8 @@ export default function Calendar() {
                         selected={selectedDate}
                         onClick={handleDayClick}
                         onEventClick={(ev) => {
-                          setSelected(new Date(ev.date + 'T00:00:00'));
+                          // FIX 2: parseDateStr ile timezone-safe parse
+                          setSelected(parseDateStr(ev.date));
                           setPanelOpen(true);
                         }}
                       />
@@ -846,20 +887,3 @@ export default function Calendar() {
     </div>
   );
 }
-
-// ─── Demo Events (fallback) ───────────────────────────────────────────────────
-const pad = (n) => String(n).padStart(2, '0');
-const Y = new Date().getFullYear();
-const M = new Date().getMonth() + 1;
-
-const DEMO_EVENTS = [
-  { id: 'de1', title: 'API entegrasyonu tamamla', type: 'task',         date: `${Y}-${pad(M)}-08`, priority: 'high'   },
-  { id: 'de2', title: 'Dashboard tasarımı',        type: 'task',         date: `${Y}-${pad(M)}-10`, priority: 'urgent' },
-  { id: 'de3', title: 'Netflix',                   type: 'subscription', date: `${Y}-${pad(M)}-15`, amount: 250, subtitle: 'Her ayın 15. günü' },
-  { id: 'de4', title: 'Spotify',                   type: 'subscription', date: `${Y}-${pad(M)}-05`, amount: 85,  subtitle: 'Her ayın 5. günü'  },
-  { id: 'de5', title: 'Kullanıcı testleri',        type: 'task',         date: `${Y}-${pad(M)}-20`, priority: 'medium' },
-  { id: 'de6', title: 'YouTube Premium',           type: 'subscription', date: `${Y}-${pad(M)}-22`, amount: 60,  subtitle: 'Her ayın 22. günü' },
-  { id: 'de7', title: 'Dokümantasyon güncelle',    type: 'note',         date: `${Y}-${pad(M)}-18`, priority: 'low'    },
-  { id: 'de8', title: 'Sunucu maliyeti',            type: 'payment',      date: `${Y}-${pad(M)}-01`, amount: 450 },
-  { id: 'de9', title: 'Kullanıcı testleri planla', type: 'task',         date: `${Y}-${pad(M)}-${pad(new Date().getDate())}`, priority: 'medium' },
-];

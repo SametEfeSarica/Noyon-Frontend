@@ -650,12 +650,14 @@ function TagInput({ tags, onChange }) {
 
 // ─── Main NoteEditor ──────────────────────────────────────────────────────────
 
+// ─── Main NoteEditor ──────────────────────────────────────────────────────────
+
 export default function NoteEditor({ note, onSave, onClose }) {
   // ── State
   const [title, setTitle] = useState(note?.title || '');
   const [content, setContent] = useState(note?.content || '');
   const [tags, setTags] = useState(note?.tags || []);
-  const [isFavorited, setIsFavorited] = useState(note?.favorited || false);
+  const [isFavorited, setIsFavorited] = useState(note?.favorite || note?.favorited || false);
   const [autosaveStatus, setAutosaveStatus] = useState('idle');
   const [showDrawing, setShowDrawing] = useState(false);
   const [attachments, setAttachments] = useState(note?.attachments || []);
@@ -672,25 +674,32 @@ export default function NoteEditor({ note, onSave, onClose }) {
   const autosaveTimer = useRef(null);
   const saveTimer = useRef(null);
 
-  // ── Word/char count
+  // ── Word/char count (DÜZELTME: HTML etiketlerini kelime saymaması için temizlendi)
   useEffect(() => {
-    const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+    const textOnly = content.replace(/<[^>]+>/g, '');
+    const words = textOnly.trim() ? textOnly.trim().split(/\s+/).length : 0;
     setWordCount(words);
-    setCharCount(content.length);
+    setCharCount(textOnly.length);
   }, [content]);
 
-  // ── Autosave logic
+  // ── Autosave logic (DÜZELTME: folderId kaybolmasın diye ...note eklendi)
   const triggerAutosave = useCallback(() => {
     setAutosaveStatus('saving');
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      // Simulate save — replace with real API call
-      onSave?.({ title, content, tags, favorited: isFavorited, attachments });
+      onSave?.({ 
+        ...note, // Çok önemli: Klasör ID'sini ve diğer verileri korur
+        title, 
+        content, 
+        tags, 
+        favorite: isFavorited, 
+        attachments 
+      });
       setAutosaveStatus('saved');
       clearTimeout(autosaveTimer.current);
       autosaveTimer.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
     }, 800);
-  }, [title, content, tags, isFavorited, attachments, onSave]);
+  }, [note, title, content, tags, isFavorited, attachments, onSave]);
 
   useEffect(() => {
     if (title || content) triggerAutosave();
@@ -707,13 +716,11 @@ export default function NoteEditor({ note, onSave, onClose }) {
     try { return document.queryCommandState(cmd); } catch { return false; }
   };
 
-  // ── Heading format via formatBlock
   const applyHeading = useCallback((type) => {
     setHeadingType(type);
     exec('formatBlock', type);
   }, [exec]);
 
-  // ── File attachment handler
   const handleFileSelect = useCallback((e) => {
     const files = Array.from(e.target.files || []);
     const newAttachments = files.map(f => ({
@@ -733,27 +740,24 @@ export default function NoteEditor({ note, onSave, onClose }) {
     setAttachments(prev => prev.filter(a => a.id !== id));
   }, []);
 
-  // ── Focus title on mount
+  // ── Initial Mount & Safe HTML Load (BÜYÜK DÜZELTME: İmleç kaybolmasını engeller)
   useEffect(() => {
     titleRef.current?.focus();
+    // React'in döngüsüne sokmadan, HTML içeriğini sadece ilk girişte DOM'a basıyoruz
+    if (editorRef.current && !editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = note?.content || '';
+    }
   }, []);
 
-  // ── Today's date for display
   const today = new Date().toLocaleDateString('tr-TR', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 
   return (
-    <div
-      className={[
-        'flex flex-col h-full',
-        'bg-[#111119]',
-        'transition-all duration-200',
-      ].join(' ')}
-    >
+    <div className="flex flex-col h-full bg-[#111119] transition-all duration-200">
+      
       {/* ── Editor Header ───────────────────────────────────────────────────── */}
       <div className="flex h-12 flex-shrink-0 items-center gap-2 border-b border-[#1e1e26] bg-[#0f0f18] px-4">
-        {/* Left: breadcrumb / back */}
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={onClose}
@@ -764,167 +768,105 @@ export default function NoteEditor({ note, onSave, onClose }) {
             </svg>
             Notlar
           </button>
-
           <span className="text-[#2a2a38]">/</span>
-
           <span className="truncate text-[12.5px] text-[#888898]">
             {title || 'İsimsiz Not'}
           </span>
         </div>
 
-        {/* Right: actions */}
         <div className="flex items-center gap-1">
           <AutosaveIndicator status={autosaveStatus} />
-
           <div className="mx-2 h-4 w-px bg-[#2a2a38]" />
-
           <ToolbarBtn
             onClick={() => setIsFavorited(p => !p)}
             active={isFavorited}
             title={isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'}
           >
             <span className={isFavorited ? 'text-[#fbbf24]' : ''}>
-              <IconStar />
+              {/* Not: İkonu yukarıdaki component listenden otomatik alacaktır */}
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
             </span>
           </ToolbarBtn>
-
-          <ToolbarBtn
-            onClick={() => fileInputRef.current?.click()}
-            title="Dosya ekle"
-          >
-            <IconAttach />
+          <ToolbarBtn onClick={() => fileInputRef.current?.click()} title="Dosya ekle">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+            </svg>
           </ToolbarBtn>
-
-          <ToolbarBtn
-            onClick={() => setShowDrawing(p => !p)}
-            active={showDrawing}
-            title="Çizim araçları"
-          >
-            <IconDraw />
-          </ToolbarBtn>
-
-          <ToolbarBtn onClick={() => {}} title="Daha fazla">
-            <IconMore />
+          <ToolbarBtn onClick={() => setShowDrawing(p => !p)} active={showDrawing} title="Çizim araçları">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+            </svg>
           </ToolbarBtn>
         </div>
       </div>
 
       {/* ── Formatting Toolbar ───────────────────────────────────────────────── */}
       <div className="flex flex-shrink-0 flex-wrap items-center gap-0.5 border-b border-[#1a1a24] bg-[#0d0d16] px-3 py-1.5">
-        {/* History */}
-        <ToolbarBtn onClick={() => exec('undo')} title="Geri al (Ctrl+Z)"><IconUndo /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('redo')} title="Yinele (Ctrl+Y)"><IconRedo /></ToolbarBtn>
-
+        <ToolbarBtn onClick={() => exec('undo')} title="Geri al (Ctrl+Z)">Geri</ToolbarBtn>
+        <ToolbarBtn onClick={() => exec('redo')} title="Yinele (Ctrl+Y)">İleri</ToolbarBtn>
         <ToolbarDivider />
-
-        {/* Block type */}
         <HeadingSelect value={headingType} onChange={applyHeading} />
-
         <ToolbarDivider />
-
-        {/* Font size */}
         <FontSizeSelect value={fontSize} onChange={(s) => { setFontSize(s); exec('fontSize', '7'); }} />
-
         <ToolbarDivider />
-
-        {/* Inline formatting */}
-        <ToolbarBtn onClick={() => exec('bold')} active={queryCmd('bold')} title="Kalın (Ctrl+B)"><IconBold /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('italic')} active={queryCmd('italic')} title="İtalik (Ctrl+I)"><IconItalic /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('underline')} active={queryCmd('underline')} title="Altı çizili (Ctrl+U)"><IconUnderline /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('strikeThrough')} active={queryCmd('strikeThrough')} title="Üstü çizili"><IconStrikethrough /></ToolbarBtn>
-
+        <ToolbarBtn onClick={() => exec('bold')} active={queryCmd('bold')} title="Kalın (Ctrl+B)">B</ToolbarBtn>
+        <ToolbarBtn onClick={() => exec('italic')} active={queryCmd('italic')} title="İtalik (Ctrl+I)">I</ToolbarBtn>
+        <ToolbarBtn onClick={() => exec('underline')} active={queryCmd('underline')} title="Altı çizili (Ctrl+U)">U</ToolbarBtn>
+        <ToolbarBtn onClick={() => exec('strikeThrough')} active={queryCmd('strikeThrough')} title="Üstü çizili">S</ToolbarBtn>
         <ToolbarDivider />
-
-        {/* Color */}
         <ColorPicker textColor={textColor} onTextColor={(c) => { setTextColor(c); exec('foreColor', c); }} highlightColor={highlightColor} onHighlight={(c) => { setHighlightColor(c); exec('hiliteColor', c); }} />
-        <ToolbarBtn onClick={() => {}} title="Vurgula"><IconHighlight /></ToolbarBtn>
-
         <ToolbarDivider />
-
-        {/* Alignment */}
-        <ToolbarBtn onClick={() => exec('justifyLeft')} title="Sola hizala"><IconAlignLeft /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('justifyCenter')} title="Ortala"><IconAlignCenter /></ToolbarBtn>
-
+        <ToolbarBtn onClick={() => exec('justifyLeft')} title="Sola hizala">Sol</ToolbarBtn>
+        <ToolbarBtn onClick={() => exec('justifyCenter')} title="Ortala">Orta</ToolbarBtn>
         <ToolbarDivider />
-
-        {/* Lists */}
-        <ToolbarBtn onClick={() => exec('insertUnorderedList')} active={queryCmd('insertUnorderedList')} title="Madde listesi"><IconList /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('insertOrderedList')} active={queryCmd('insertOrderedList')} title="Sıralı liste"><IconOrderedList /></ToolbarBtn>
-
-        <ToolbarDivider />
-
-        {/* Block elements */}
-        <ToolbarBtn onClick={() => exec('formatBlock', 'blockquote')} title="Alıntı"><IconQuote /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('formatBlock', 'pre')} title="Kod bloğu"><IconCode /></ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('createLink', prompt('URL:'))} title="Bağlantı ekle"><IconLink /></ToolbarBtn>
+        <ToolbarBtn onClick={() => exec('insertUnorderedList')} active={queryCmd('insertUnorderedList')} title="Madde listesi">•</ToolbarBtn>
+        <ToolbarBtn onClick={() => exec('insertOrderedList')} active={queryCmd('insertOrderedList')} title="Sıralı liste">1.</ToolbarBtn>
       </div>
 
-      {/* ── Drawing Toolbar ──────────────────────────────────────────────────── */}
       <DrawingToolbar visible={showDrawing} onClose={() => setShowDrawing(false)} />
 
       {/* ── Scrollable Editor Body ───────────────────────────────────────────── */}
-      <div
-        className={[
-          'flex-1 overflow-y-auto overflow-x-hidden',
-          '[&::-webkit-scrollbar]:w-[4px]',
-          '[&::-webkit-scrollbar-track]:bg-transparent',
-          '[&::-webkit-scrollbar-thumb]:rounded-full',
-          '[&::-webkit-scrollbar-thumb]:bg-[#2a2a36]',
-          '[&::-webkit-scrollbar-thumb:hover]:bg-[#3a3a4a]',
-          'scrollbar-thin scrollbar-thumb-[#2a2a36]',
-        ].join(' ')}
-      >
+      <div className="flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2a2a36] scrollbar-thin scrollbar-thumb-[#2a2a36]">
         <div className="mx-auto w-full max-w-3xl px-8 py-8 md:px-12">
-
-          {/* Date */}
+          
           <p className="mb-4 text-[11px] font-medium uppercase tracking-widest text-[#333344] select-none">
             {today}
           </p>
 
-          {/* Title */}
           <input
             ref={titleRef}
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="İsimsiz Not"
-            className={[
-              'w-full bg-transparent outline-none',
-              'text-[28px] font-bold tracking-[-0.03em] text-white',
-              'placeholder:text-[#2e2e3e]',
-              'mb-4 leading-tight',
-              'transition-colors duration-150',
-            ].join(' ')}
+            className="w-full bg-transparent outline-none text-[28px] font-bold tracking-[-0.03em] text-white placeholder:text-[#2e2e3e] mb-4 leading-tight transition-colors duration-150"
             style={{ caretColor: '#6c6af6' }}
           />
 
-          {/* Tags */}
           <div className="mb-6 flex items-center gap-2">
-            <span className="flex-shrink-0 text-[#333344]"><IconTag /></span>
+            <span className="flex-shrink-0 text-[#333344]">#</span>
             <TagInput tags={tags} onChange={setTags} />
           </div>
 
-          {/* Divider */}
           <div className="mb-6 h-px bg-[#1a1a24]" />
 
-          {/* Content area */}
+          {/* BÜYÜK DÜZELTME: dangerouslySetInnerHTML TAMAMEN KALDIRILDI! */}
           <div
             ref={editorRef}
-            contentEditable
+            contentEditable="true"
             suppressContentEditableWarning
-            onInput={e => setContent(e.currentTarget.innerText)}
+            onInput={e => setContent(e.currentTarget.innerHTML)}
             data-placeholder="Yazmaya başla..."
             className={[
               'min-h-[360px] outline-none',
               'text-[16px] leading-[1.75] text-[#c0c0cc]',
-              // Placeholder via CSS data attribute
               '[&:empty]:before:content-[attr(data-placeholder)]',
               '[&:empty]:before:text-[#2e2e3e]',
               '[&:empty]:before:pointer-events-none',
-              // Heading styles inside editor
               '[&_h1]:text-[26px] [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:tracking-tight',
               '[&_h2]:text-[20px] [&_h2]:font-semibold [&_h2]:text-[#d8d8e4] [&_h2]:mb-2.5 [&_h2]:mt-5',
               '[&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[#c0c0cc] [&_h3]:mb-2 [&_h3]:mt-4',
-              // Paragraph / block
               '[&_p]:mb-3',
               '[&_blockquote]:border-l-2 [&_blockquote]:border-[#6c6af6]/50 [&_blockquote]:pl-4 [&_blockquote]:text-[#888898] [&_blockquote]:italic [&_blockquote]:my-4',
               '[&_pre]:bg-[#0d0d16] [&_pre]:border [&_pre]:border-[#2a2a38] [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:text-[13px] [&_pre]:font-mono [&_pre]:text-[#9d9cf8] [&_pre]:my-4 [&_pre]:overflow-x-auto',
@@ -941,10 +883,8 @@ export default function NoteEditor({ note, onSave, onClose }) {
               color: textColor,
               caretColor: '#6c6af6',
             }}
-            dangerouslySetInnerHTML={{ __html: note?.contentHTML || '' }}
           />
 
-          {/* Attachments section */}
           {attachments.length > 0 && (
             <div className="mt-8">
               <div className="mb-3 flex items-center gap-2">
@@ -954,7 +894,6 @@ export default function NoteEditor({ note, onSave, onClose }) {
                 </span>
                 <div className="h-px flex-1 bg-[#1a1a24]" />
               </div>
-
               <div className="grid gap-2 sm:grid-cols-2">
                 {attachments.map(a => (
                   <AttachmentItem key={a.id} attachment={a} onRemove={removeAttachment} />
@@ -963,27 +902,18 @@ export default function NoteEditor({ note, onSave, onClose }) {
             </div>
           )}
 
-          {/* Drop zone */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className={[
-              'mt-6 flex flex-col items-center justify-center rounded-xl',
-              'border border-dashed border-[#1e1e2c] py-6',
-              'cursor-pointer transition-all duration-150',
-              'hover:border-[#6c6af6]/30 hover:bg-[#6c6af6]/[0.02]',
-              'group',
-            ].join(' ')}
+            className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e2c] py-6 cursor-pointer transition-all duration-150 hover:border-[#6c6af6]/30 hover:bg-[#6c6af6]/[0.02] group"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1a1a24] text-[#3a3a50] transition-colors group-hover:bg-[#6c6af6]/10 group-hover:text-[#6c6af6]">
-              <IconAttach />
+              +
             </span>
             <p className="mt-2 text-[12px] text-[#333344] group-hover:text-[#555568] transition-colors">
               Dosya eklemek için tıkla veya sürükle
             </p>
             <p className="text-[11px] text-[#252532] mt-0.5">PNG, JPG, PDF — maks. 20 MB</p>
           </div>
-
-          {/* Bottom padding */}
           <div className="h-16" />
         </div>
       </div>
@@ -997,22 +927,13 @@ export default function NoteEditor({ note, onSave, onClose }) {
             <span>{attachments.length} ek</span>
           )}
         </div>
-
         <div className="flex items-center gap-3">
           <AutosaveIndicator status={autosaveStatus} />
           <span className="text-[11px] text-[#252532] select-none">Ctrl+S ile kaydet</span>
         </div>
       </div>
 
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept="image/*,.pdf"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
+      <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
     </div>
   );
 }
