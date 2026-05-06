@@ -70,7 +70,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         localStorage.clear();
         window.location.href = '/login';
-        return Promise.reject(refreshError);
+        return Promise.reject(refreshError); //Talha
       } finally {
         isRefreshing = false;
       }
