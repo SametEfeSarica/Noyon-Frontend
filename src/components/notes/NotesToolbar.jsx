@@ -317,6 +317,8 @@ export default function NotesToolbar({
   // Active filters
   filters = [],
   onFilterRemove,
+  onFilterToggle, // YENİ: Filtre tıklama işlemi için
+  availableTags = [], // YENİ: Dinamik etiket listesi için
   // Actions
   onNewNote,
   // Counts
@@ -422,24 +424,30 @@ export default function NotesToolbar({
                   Etiket Filtrele
                 </p>
                 <div className="flex flex-col gap-0.5">
-                  {['strateji', 'okuma', 'kod', 'rutin', 'ürün', 'satış'].map(tag => {
-                    const active = filters.some(f => f.label === tag);
-                    return (
-                      <button
-                        key={tag}
-                        className={[
-                          'flex items-center justify-between rounded-md px-2.5 py-1.5',
-                          'text-[12px] transition-colors duration-100',
-                          active
-                            ? 'bg-[#1e1e2e] text-[#9d9cf8]'
-                            : 'text-[#70708a] hover:bg-[#1a1a28] hover:text-[#b0b0c8]',
-                        ].join(' ')}
-                      >
-                        #{tag}
-                        {active && <span className="text-[#6c6af6]"><IconCheck /></span>}
-                      </button>
-                    );
-                  })}
+                  {/* BÜYÜK DÜZELTME BURASI: Dinamik etiket listesi */}
+                  {availableTags.length === 0 ? (
+                     <span className="px-2 py-1 text-[11px] text-[#50506a]">Etiket bulunamadı.</span>
+                  ) : (
+                    availableTags.map(tag => {
+                      const active = filters.some(f => f.label === tag);
+                      return (
+                        <button
+                          key={tag}
+                          onClick={() => onFilterToggle?.(tag)} 
+                          className={[
+                            'flex items-center justify-between rounded-md px-2.5 py-1.5',
+                            'text-[12px] transition-colors duration-100',
+                            active
+                              ? 'bg-[#1e1e2e] text-[#9d9cf8]'
+                              : 'text-[#70708a] hover:bg-[#1a1a28] hover:text-[#b0b0c8]',
+                          ].join(' ')}
+                        >
+                          #{tag}
+                          {active && <span className="text-[#6c6af6]"><IconCheck /></span>}
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}

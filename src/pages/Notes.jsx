@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { noteApi } from '../api/noteApi'; 
 import NoteEditor from '../components/notes/NoteEditor';
 import { useAuth } from '../context/AuthContext';
 import NotesToolbar from '../components/notes/NotesToolbar';
 import NoteCard from '../components/notes/NoteCard';
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const SkeletonCard = ({ variant = 'grid' }) => {
   if (variant === 'list') {
@@ -118,6 +119,32 @@ export default function Notes() {
 
   useEffect(() => { if (user) fetchNotes(); }, [user, fetchNotes]);
 
+  // ── Etiketleri Dinamik Olarak Toplama (YENİ EKLENDİ) ──────────────────────
+  const availableTags = useMemo(() => {
+    const tags = new Set();
+    notes.forEach(note => {
+      if (note.tags && Array.isArray(note.tags)) {
+        note.tags.forEach(tag => tags.add(tag));
+      }
+    });
+    // Alfabetik olarak sıralayıp diziye çeviriyoruz
+    return Array.from(tags).sort((a, b) => a.localeCompare(b, 'tr'));
+  }, [notes]);
+
+  // ── Filtre Açma/Kapama İşlevi (YENİ EKLENDİ) ──────────────────────────────
+  const handleFilterToggle = useCallback((tag) => {
+    setActiveFilters(prev => {
+      const isSelected = prev.some(f => f.label === tag);
+      if (isSelected) {
+        // Zaten seçiliyse listeden çıkar
+        return prev.filter(f => f.label !== tag);
+      } else {
+        // Seçili değilse listeye ekle (renk olarak varsayılan bir renk atıyoruz)
+        return [...prev, { label: tag, color: '#6c6af6' }];
+      }
+    });
+  }, []);
+
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleCreateNewNote = useCallback(() => {
     setSelectedNote({
@@ -130,17 +157,15 @@ export default function Notes() {
     });
   }, [activeFolder]);
 
-const handleSaveNote = useCallback(async (updatedNoteData) => {
+  const handleSaveNote = useCallback(async (updatedNoteData) => {
     try {
       if (selectedNote.id === 'new') {
         const createdNote = await noteApi.create(updatedNoteData);
-        // EKLENDİ: İlk harfi yazıp not backend'de oluştuktan sonra, 
-        // editöre backend'den gelen GERÇEK ID'yi veriyoruz ki üstüne yazmaya devam etsin.
         setSelectedNote(createdNote); 
       } else {
         await noteApi.update(selectedNote.id, updatedNoteData);
       }
-      fetchNotes(); // Listeyi arkada sessizce yenile
+      fetchNotes(); 
     } catch (err) {
       console.error("Kaydetme hatası", err);
     }
@@ -180,7 +205,7 @@ const handleSaveNote = useCallback(async (updatedNoteData) => {
     }
   }, [fetchNotes]);
 
-  // ── Filter / Sort ──────────────────────────────────────────────────────────
+  // ── Filter / Sort (GÜNCELLENDİ) ────────────────────────────────────────────
   const filteredNotes = notes
     .filter(note => {
       if (activeFolder === 'Favoriler') return note.favorite;
@@ -194,6 +219,14 @@ const handleSaveNote = useCallback(async (updatedNoteData) => {
         note.title?.toLowerCase().includes(q) ||
         note.content?.replace(/<[^>]+>/g, '').toLowerCase().includes(q)
       );
+    })
+    // YENİ EKLENDİ: Etiket Filtresi
+    .filter(note => {
+      // Eğer hiç filtre seçilmemişse tüm notları göster
+      if (activeFilters.length === 0) return true;
+      const noteTags = note.tags || [];
+      // Seçili etiketlerden EN AZ BİRİNİ içeren notları göster
+      return activeFilters.some(filter => noteTags.includes(filter.label));
     })
     .sort((a, b) => {
       if (sortBy === 'modified')    return new Date(b.updatedAt) - new Date(a.updatedAt);
@@ -230,6 +263,9 @@ const handleSaveNote = useCallback(async (updatedNoteData) => {
           onSortChange={setSortBy}
           filters={activeFilters}
           onFilterRemove={(f) => setActiveFilters(prev => prev.filter(x => x.label !== f.label))}
+          // BÜYÜK DÜZELTME BURASI: Yeni eklediğimiz propsları Toolbar'a gönderiyoruz
+          availableTags={availableTags}
+          onFilterToggle={handleFilterToggle}
           onNewNote={handleCreateNewNote}
           totalNotes={filteredNotes.length}
           activeFolder={activeFolder}
@@ -283,12 +319,11 @@ const handleSaveNote = useCallback(async (updatedNoteData) => {
                       folder={folderMeta(note.folderName)} 
                       isFavorited={note.favorite}
                       updatedAt={note.updatedAt}
-                      // path={/dashboard/notes/${note.id}} <-- Bu satırı artık silebilirsiniz
                       accentColor={folderMeta(note.folderName).color}
                       variant={view}
                       onFavoriteToggle={handleFavoriteToggle}
                       onDelete={() => handleDeleteNote(note.id)}
-                      onClick={() => setSelectedNote(note)} // 3. DÜZELTME: Karta tıklandığında editörü açan sihirli komut!
+                      onClick={() => setSelectedNote(note)}
                     />
                   </motion.div>
                 ))}

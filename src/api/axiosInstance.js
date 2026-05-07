@@ -7,9 +7,13 @@ const api = axios.create({
 
 // İstek Yollayıcı (Interceptor) — Her isteğin kafasına JWT ekler
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  // DÜZELTME: Token adını hem "token" hem "accessToken" olarak ara
+  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.warn("DİKKAT: Gönderilecek bir Token bulunamadı!");
   }
   return config;
 });
@@ -60,6 +64,8 @@ api.interceptors.response.use(
         );
 
         const { accessToken, refreshToken: newRefreshToken } = response.data;
+        // DÜZELTME: Sistemi garantiye almak için token'ı iki isimle de kaydet
+        localStorage.setItem('token', accessToken); 
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', newRefreshToken);
 
@@ -70,7 +76,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         localStorage.clear();
         window.location.href = '/login';
-        return Promise.reject(refreshError);
+        return Promise.reject(refreshError); 
       } finally {
         isRefreshing = false;
       }

@@ -55,11 +55,11 @@ const getPlatformFaClass = (name) => {
 // ─── Category Pill ────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
   Eğlence: { color: '#a78bfa', bg: 'rgba(167,139,250,0.08)' },
-  Müzik: { color: '#34d399', bg: 'rgba(52,211,153,0.08)' },
-  Yazılım: { color: '#60a5fa', bg: 'rgba(96,165,250,0.08)' },
-  Eğitim: { color: '#fbbf24', bg: 'rgba(251,191,36,0.08)' },
-  Oyun: { color: '#f472b6', bg: 'rgba(244,114,182,0.08)' },
-  Diğer: { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)' },
+  Müzik:   { color: '#34d399', bg: 'rgba(52,211,153,0.08)'  },
+  Yazılım: { color: '#60a5fa', bg: 'rgba(96,165,250,0.08)'  },
+  Eğitim:  { color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
+  Oyun:    { color: '#f472b6', bg: 'rgba(244,114,182,0.08)' },
+  Diğer:   { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)' },
 };
 
 // ─── Categories & Currencies ──────────────────────────────────────────────────
@@ -87,9 +87,9 @@ const SubModal = ({ initial, onClose, onSaved }) => {
     billingPeriod: 'MONTHLY',
   };
 
-  const [form, setForm] = useState(initial ? { ...initial } : empty);
+  const [form, setForm]     = useState(initial ? { ...initial } : empty);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]   = useState('');
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -99,18 +99,29 @@ const SubModal = ({ initial, onClose, onSaved }) => {
       setError('Platform adı, tutar ve yenileme günü zorunludur.');
       return;
     }
+
+    const payload = {
+      platformName:  form.platformName,
+      amount:        parseFloat(form.amount),
+      currency:      form.currency,
+      renewalDay:    parseInt(form.renewalDay),
+      category:      form.category,
+      billingPeriod: form.billingPeriod,
+    };
+
     try {
       setSaving(true);
-      const payload = {
-        ...form,
-        amount: parseFloat(form.amount),
-        renewalDay: parseInt(form.renewalDay),
-      };
+
       if (initial?.id) {
-        await api.put(`/api/subscriptions/${initial.id}`, payload);
+        // ── DÜZENLEME: PUT endpoint mevcut olmadığından
+        //    mevcut kaydı sil, ardından yeni kayıt oluştur. ──────────────────
+        await api.delete(`/api/subscriptions/${initial.id}`);
+        await api.post('/api/subscriptions', payload);
       } else {
+        // ── YENİ EKLEME ───────────────────────────────────────────────────
         await api.post('/api/subscriptions', payload);
       }
+
       onSaved();
       onClose();
     } catch {
@@ -231,7 +242,7 @@ const SubModal = ({ initial, onClose, onSaved }) => {
                 onChange={(e) => set('billingPeriod', e.target.value)}
               >
                 <option value="MONTHLY" style={{ background: '#1a1a1a' }}>Aylık</option>
-                <option value="YEARLY" style={{ background: '#1a1a1a' }}>Yıllık</option>
+                <option value="YEARLY"  style={{ background: '#1a1a1a' }}>Yıllık</option>
               </select>
             </div>
           </div>
@@ -240,7 +251,7 @@ const SubModal = ({ initial, onClose, onSaved }) => {
             <label className={labelCls}>Kategori</label>
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((c) => {
-                const cfg = CATEGORY_COLORS[c] || CATEGORY_COLORS['Diğer'];
+                const cfg    = CATEGORY_COLORS[c] || CATEGORY_COLORS['Diğer'];
                 const active = form.category === c;
                 return (
                   <button
@@ -249,9 +260,9 @@ const SubModal = ({ initial, onClose, onSaved }) => {
                     onClick={() => set('category', c)}
                     className="px-3 py-1 rounded-md text-xs font-medium transition-all duration-150 border"
                     style={{
-                      background: active ? cfg.bg : 'transparent',
-                      color: active ? cfg.color : '#5a5a5a',
-                      borderColor: active ? cfg.color + '40' : '#2f2f2f',
+                      background:   active ? cfg.bg        : 'transparent',
+                      color:        active ? cfg.color     : '#5a5a5a',
+                      borderColor:  active ? cfg.color + '40' : '#2f2f2f',
                     }}
                   >
                     {c}
@@ -319,7 +330,7 @@ const StatCard = ({ icon, label, value, accent, delay = 0 }) => (
 // ─── Subscription Card ────────────────────────────────────────────────────────
 const SubCard = ({ sub, onEdit, onDelete }) => {
   const urgency = getUrgencyConfig(sub.daysUntilRenewal);
-  const catCfg = CATEGORY_COLORS[sub.category] || CATEGORY_COLORS['Diğer'];
+  const catCfg  = CATEGORY_COLORS[sub.category] || CATEGORY_COLORS['Diğer'];
 
   return (
     <motion.div
@@ -333,10 +344,7 @@ const SubCard = ({ sub, onEdit, onDelete }) => {
       style={{ background: '#191919', borderColor: '#2f2f2f' }}
     >
       {/* Urgency top strip */}
-      <div
-        className="h-0.5 w-full"
-        style={{ background: urgency.color, opacity: 0.5 }}
-      />
+      <div className="h-0.5 w-full" style={{ background: urgency.color, opacity: 0.5 }} />
 
       <div className="p-4 flex flex-col flex-1">
         {/* Header row */}
@@ -417,7 +425,7 @@ const FilterTab = ({ label, active, onClick, count }) => (
     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150"
     style={{
       background: active ? '#2a2a2a' : 'transparent',
-      color: active ? '#e0e0e0' : '#5a5a5a',
+      color:      active ? '#e0e0e0' : '#5a5a5a',
     }}
   >
     {label}
@@ -435,9 +443,9 @@ const FilterTab = ({ label, active, onClick, count }) => (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Subscriptions() {
   const { user } = useAuth();
-  const [subs, setSubs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [modalData, setModalData] = useState(null);
+  const [subs, setSubs]               = useState([]);
+  const [isLoading, setIsLoading]     = useState(true);
+  const [modalData, setModalData]     = useState(null);
   const [activeFilter, setActiveFilter] = useState('Tümü');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -450,11 +458,11 @@ export default function Subscriptions() {
       setSubs(data.map((sub) => ({ ...sub, daysUntilRenewal: calculateDaysUntil(sub.renewalDay) })));
     } catch {
       setSubs([
-        { id: 1, platformName: 'Netflix',  amount: 149.99, currency: 'TRY', renewalDay: 15, category: 'Eğlence',  billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(15) },
-        { id: 2, platformName: 'Spotify',  amount:  39.99, currency: 'TRY', renewalDay: 22, category: 'Müzik',    billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(22) },
-        { id: 3, platformName: 'YouTube',  amount:  54.99, currency: 'TRY', renewalDay:  5, category: 'Eğlence',  billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(5)  },
-        { id: 4, platformName: 'GitHub',   amount:   4.00, currency: 'USD', renewalDay:  1, category: 'Yazılım',  billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(1)  },
-        { id: 5, platformName: 'Figma',    amount:  15.00, currency: 'USD', renewalDay: 10, category: 'Yazılım',  billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(10) },
+        { id: 1, platformName: 'Netflix', amount: 149.99, currency: 'TRY', renewalDay: 15, category: 'Eğlence', billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(15) },
+        { id: 2, platformName: 'Spotify', amount:  39.99, currency: 'TRY', renewalDay: 22, category: 'Müzik',   billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(22) },
+        { id: 3, platformName: 'YouTube', amount:  54.99, currency: 'TRY', renewalDay:  5, category: 'Eğlence', billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(5)  },
+        { id: 4, platformName: 'GitHub',  amount:   4.00, currency: 'USD', renewalDay:  1, category: 'Yazılım', billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(1)  },
+        { id: 5, platformName: 'Figma',   amount:  15.00, currency: 'USD', renewalDay: 10, category: 'Yazılım', billingPeriod: 'MONTHLY', daysUntilRenewal: calculateDaysUntil(10) },
       ]);
     } finally {
       setTimeout(() => setIsLoading(false), 350);
@@ -496,10 +504,7 @@ export default function Subscriptions() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="min-h-screen font-sans"
-      style={{ background: '#111111', color: '#e0e0e0' }}
-    >
+    <div className="min-h-screen font-sans" style={{ background: '#111111', color: '#e0e0e0' }}>
       <div className="max-w-6xl mx-auto px-6 py-8">
 
         {/* ── Page Header ── */}
@@ -509,9 +514,7 @@ export default function Subscriptions() {
               <i className="fa-solid fa-credit-card text-lg" style={{ color: '#5a5aef' }} />
               <h1 className="text-xl font-bold text-[#e0e0e0]">Abonelikler</h1>
             </div>
-            <p className="text-sm text-[#5a5a5a]">
-              Tekrarlayan giderlerini takip et.
-            </p>
+            <p className="text-sm text-[#5a5a5a]">Tekrarlayan giderlerini takip et.</p>
           </div>
 
           <motion.button
@@ -549,7 +552,13 @@ export default function Subscriptions() {
                 icon={<i className="fa-solid fa-calendar-check fa-fw" />}
                 label="En Yakın Ödeme"
                 value={nearestRenewal !== null ? `${nearestRenewal} gün sonra` : '—'}
-                accent={nearestRenewal !== null && nearestRenewal <= 3 ? '#ef4444' : nearestRenewal <= 7 ? '#f97316' : '#60a5fa'}
+                accent={
+                  nearestRenewal !== null && nearestRenewal <= 3
+                    ? '#ef4444'
+                    : nearestRenewal <= 7
+                    ? '#f97316'
+                    : '#60a5fa'
+                }
                 delay={0.1}
               />
             </>

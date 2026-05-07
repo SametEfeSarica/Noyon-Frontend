@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import DrawMode from '../../pages/Notes/DrawMode';
+import PdfMode from '../../pages/Notes/PdfMode';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -53,90 +55,34 @@ const IconOrderedList = () => (
   </svg>
 );
 
-const IconQuote = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4.414l-1.707 1.707A1 1 0 011 10V5a1 1 0 012 0v3h3V5a1 1 0 01-1-1H3zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-2.586l-1.707 1.707A1 1 0 0111 10V5a1 1 0 012 0v3h3V5a1 1 0 01-1-1h-1z" clipRule="evenodd" />
-  </svg>
-);
-
-const IconCode = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-  </svg>
-);
-
-const IconImage = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-  </svg>
-);
-
 const IconPDF = () => (
   <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
     <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
   </svg>
 );
 
-const IconDraw = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-  </svg>
-);
-
 const IconPencil = () => (
-  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
     <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
     <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
   </svg>
 );
 
-const IconHighlight = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m9 11-6 6v3h9l3-3" />
-    <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
-  </svg>
-);
-
-const IconLink = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-  </svg>
-);
-
-const IconEraser = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
-    <path d="M22 21H7" /><path d="m5 11 9 9" />
-  </svg>
-);
-
-const IconShape = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-  </svg>
-);
-
 const IconUndo = () => (
-  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
   </svg>
 );
 
 const IconRedo = () => (
-  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
     <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
   </svg>
 );
 
 const IconStar = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-  </svg>
-);
-
-const IconMore = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-    <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
   </svg>
 );
 
@@ -146,40 +92,32 @@ const IconClose = () => (
   </svg>
 );
 
-const IconTag = () => (
-  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-  </svg>
-);
-
 const IconChevronDown = () => (
   <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor">
     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
   </svg>
 );
 
-const IconAttach = () => (
-  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+const IconTextMode = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 2h8v2H6V6zm0 4h8v2H6v-2zm0 4h5v2H6v-2z" clipRule="evenodd" />
   </svg>
 );
 
 // ─── Toolbar Button ───────────────────────────────────────────────────────────
 
-function ToolbarBtn({ onClick, active, title, children, danger }) {
+function ToolbarBtn({ onClick, active, title, children }) {
   return (
     <button
       onMouseDown={(e) => { e.preventDefault(); onClick?.(); }}
       title={title}
       className={[
-        'relative flex h-7 w-7 items-center justify-center rounded-md',
-        'transition-all duration-100 ease-out',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6c6af6]/50',
+        'flex h-7 w-7 items-center justify-center rounded-md',
+        'transition-all duration-150 ease-out',
+        'focus-visible:outline-none',
         active
           ? 'bg-[#6c6af6]/20 text-[#9d9cf8]'
-          : danger
-            ? 'text-[#888898] hover:bg-[#2a1520] hover:text-[#f87171]'
-            : 'text-[#888898] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
+          : 'text-[#888898] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
       ].join(' ')}
     >
       {children}
@@ -187,10 +125,8 @@ function ToolbarBtn({ onClick, active, title, children, danger }) {
   );
 }
 
-// ─── Divider ─────────────────────────────────────────────────────────────────
-
 function ToolbarDivider() {
-  return <div className="h-4 w-px bg-[#2a2a38] flex-shrink-0 mx-0.5" />;
+  return <div className="h-4 w-px bg-[#2a2a38] flex-shrink-0 mx-1" />;
 }
 
 // ─── Font Size Selector ───────────────────────────────────────────────────────
@@ -209,36 +145,30 @@ function FontSizeSelect({ value, onChange }) {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative z-50">
       <button
         onMouseDown={(e) => { e.preventDefault(); setOpen(p => !p); }}
         className={[
           'flex h-7 items-center gap-1 rounded-md px-2',
-          'text-[12px] font-medium text-[#a0a0b0]',
-          'border border-transparent',
-          'transition-all duration-100',
-          open
-            ? 'bg-[#1e1e28] border-[#2f2f3e] text-[#d0d0da]'
-            : 'hover:bg-[#1e1e28] hover:text-[#d0d0da]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6c6af6]/50',
+          'text-[12px] font-medium transition-all duration-150',
+          open ? 'bg-[#1e1e28] text-[#d0d0da]' : 'text-[#a0a0b0] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
+          'focus-visible:outline-none',
         ].join(' ')}
       >
-        <span className="w-5 text-center">{value}</span>
+        <span className="w-4 text-center">{value}</span>
         <IconChevronDown />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-16 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl shadow-black/40 overflow-hidden">
-          <div className="py-1 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:bg-[#2a2a38] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+        <div className="absolute top-full left-0 mt-1.5 z-50 w-16 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl overflow-hidden">
+          <div className="py-1 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:bg-[#2a2a38] [&::-webkit-scrollbar-track]:bg-transparent">
             {FONT_SIZES.map(size => (
               <button
                 key={size}
                 onMouseDown={(e) => { e.preventDefault(); onChange(size); setOpen(false); }}
                 className={[
                   'w-full px-3 py-1.5 text-left text-[12px] transition-colors',
-                  value === size
-                    ? 'bg-[#6c6af6]/15 text-[#9d9cf8]'
-                    : 'text-[#a0a0b0] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
+                  value === size ? 'bg-[#6c6af6]/15 text-[#9d9cf8]' : 'text-[#a0a0b0] hover:bg-[#1e1e28]',
                 ].join(' ')}
               >
                 {size}
@@ -254,25 +184,16 @@ function FontSizeSelect({ value, onChange }) {
 // ─── Color Picker ─────────────────────────────────────────────────────────────
 
 const TEXT_COLORS = [
-  { label: 'Default', value: '#d0d0da' },
-  { label: 'Muted', value: '#888898' },
-  { label: 'Purple', value: '#9d9cf8' },
-  { label: 'Blue', value: '#60a5fa' },
-  { label: 'Cyan', value: '#22d3ee' },
-  { label: 'Green', value: '#4ade80' },
-  { label: 'Yellow', value: '#fbbf24' },
-  { label: 'Orange', value: '#fb923c' },
-  { label: 'Red', value: '#f87171' },
+  { label: 'Default', value: '#d0d0da' }, { label: 'Muted', value: '#888898' }, { label: 'Purple', value: '#9d9cf8' },
+  { label: 'Blue', value: '#60a5fa' }, { label: 'Cyan', value: '#22d3ee' }, { label: 'Green', value: '#4ade80' },
+  { label: 'Yellow', value: '#fbbf24' }, { label: 'Orange', value: '#fb923c' }, { label: 'Red', value: '#f87171' },
   { label: 'Pink', value: '#f472b6' },
 ];
 
 const HIGHLIGHT_COLORS = [
-  { label: 'None', value: 'transparent' },
-  { label: 'Purple', value: 'rgba(108,106,246,0.2)' },
-  { label: 'Blue', value: 'rgba(96,165,250,0.2)' },
-  { label: 'Green', value: 'rgba(74,222,128,0.2)' },
-  { label: 'Yellow', value: 'rgba(251,191,36,0.2)' },
-  { label: 'Red', value: 'rgba(248,113,113,0.2)' },
+  { label: 'None', value: 'transparent' }, { label: 'Purple', value: 'rgba(108,106,246,0.2)' },
+  { label: 'Blue', value: 'rgba(96,165,250,0.2)' }, { label: 'Green', value: 'rgba(74,222,128,0.2)' },
+  { label: 'Yellow', value: 'rgba(251,191,36,0.2)' }, { label: 'Red', value: 'rgba(248,113,113,0.2)' },
 ];
 
 function ColorPicker({ textColor, onTextColor, highlightColor, onHighlight }) {
@@ -288,35 +209,29 @@ function ColorPicker({ textColor, onTextColor, highlightColor, onHighlight }) {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative z-50">
       <button
         onMouseDown={(e) => { e.preventDefault(); setOpen(p => !p); }}
-        title="Text color"
+        title="Metin ve Vurgu Rengi"
         className={[
-          'flex h-7 w-7 flex-col items-center justify-center gap-0.5 rounded-md',
-          'transition-all duration-100',
+          'flex h-7 w-7 flex-col items-center justify-center gap-0.5 rounded-md transition-all duration-150',
           open ? 'bg-[#1e1e28] text-[#d0d0da]' : 'text-[#888898] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6c6af6]/50',
         ].join(' ')}
       >
         <span className="text-[11px] font-bold leading-none">A</span>
-        <span
-          className="h-[3px] w-4 rounded-full transition-colors duration-150"
-          style={{ backgroundColor: textColor }}
-        />
+        <span className="h-[3px] w-4 rounded-full transition-colors" style={{ backgroundColor: textColor }} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl shadow-black/40 p-3">
-          {/* Tabs */}
-          <div className="flex gap-1 mb-3 bg-[#0e0e14] rounded-md p-0.5">
+        <div className="absolute top-full left-0 mt-1.5 z-50 w-52 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl p-3">
+          <div className="flex gap-1 mb-3 bg-[#0e0e14] rounded-md p-0.5 border border-[#1e1e28]">
             {['text', 'highlight'].map(t => (
               <button
                 key={t}
                 onMouseDown={(e) => { e.preventDefault(); setTab(t); }}
                 className={[
                   'flex-1 rounded py-1 text-[11px] font-medium capitalize transition-all',
-                  tab === t ? 'bg-[#1e1e28] text-[#d0d0da]' : 'text-[#555568] hover:text-[#a0a0b0]',
+                  tab === t ? 'bg-[#252535] text-[#d0d0da]' : 'text-[#555568] hover:text-[#a0a0b0]',
                 ].join(' ')}
               >
                 {t === 'text' ? 'Metin' : 'Vurgu'}
@@ -332,15 +247,11 @@ function ColorPicker({ textColor, onTextColor, highlightColor, onHighlight }) {
                   onMouseDown={(e) => { e.preventDefault(); onTextColor(c.value); setOpen(false); }}
                   title={c.label}
                   className={[
-                    'h-7 w-7 rounded-md border transition-all duration-100',
-                    textColor === c.value
-                      ? 'border-[#6c6af6] scale-110 shadow-md'
-                      : 'border-[#2a2a38] hover:border-[#3a3a48] hover:scale-105',
+                    'h-7 w-7 rounded-md border transition-all',
+                    textColor === c.value ? 'border-[#6c6af6] scale-110 shadow-sm' : 'border-[#2a2a38] hover:border-[#4a4a5a]',
                   ].join(' ')}
                   style={{ backgroundColor: c.value === '#d0d0da' ? '#252530' : c.value }}
-                >
-                  <span className="sr-only">{c.label}</span>
-                </button>
+                />
               ))}
             </div>
           )}
@@ -353,10 +264,8 @@ function ColorPicker({ textColor, onTextColor, highlightColor, onHighlight }) {
                   onMouseDown={(e) => { e.preventDefault(); onHighlight(c.value); setOpen(false); }}
                   title={c.label}
                   className={[
-                    'h-7 rounded-md border text-[10px] font-medium transition-all duration-100',
-                    highlightColor === c.value
-                      ? 'border-[#6c6af6] text-[#9d9cf8]'
-                      : 'border-[#2a2a38] text-[#666678] hover:border-[#3a3a48]',
+                    'h-7 rounded-md border text-[10px] font-medium transition-all',
+                    highlightColor === c.value ? 'border-[#6c6af6] text-[#9d9cf8]' : 'border-[#2a2a38] text-[#666678] hover:border-[#4a4a5a]',
                   ].join(' ')}
                   style={{ backgroundColor: c.value === 'transparent' ? '#0e0e14' : c.value }}
                 >
@@ -393,16 +302,13 @@ function HeadingSelect({ value, onChange }) {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative z-50">
       <button
         onMouseDown={(e) => { e.preventDefault(); setOpen(p => !p); }}
         className={[
           'flex h-7 items-center gap-1.5 rounded-md px-2.5',
-          'text-[12px] font-medium',
-          'transition-all duration-100',
-          open
-            ? 'bg-[#1e1e28] text-[#d0d0da]'
-            : 'text-[#a0a0b0] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
+          'text-[12px] font-medium transition-all duration-150',
+          open ? 'bg-[#1e1e28] text-[#d0d0da]' : 'text-[#a0a0b0] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
           'focus-visible:outline-none',
         ].join(' ')}
       >
@@ -411,20 +317,17 @@ function HeadingSelect({ value, onChange }) {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-32 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl shadow-black/40 py-1 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1.5 z-50 w-32 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl py-1 overflow-hidden">
           {HEADING_OPTIONS.map(opt => (
             <button
               key={opt.value}
               onMouseDown={(e) => { e.preventDefault(); onChange(opt.value); setOpen(false); }}
               className={[
                 'w-full px-3 py-2 text-left transition-colors',
-                value === opt.value
-                  ? 'bg-[#6c6af6]/15 text-[#9d9cf8]'
-                  : 'text-[#a0a0b0] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
+                value === opt.value ? 'bg-[#6c6af6]/15 text-[#9d9cf8]' : 'text-[#a0a0b0] hover:bg-[#1e1e28]',
                 opt.value === 'h1' ? 'text-[16px] font-bold' :
                 opt.value === 'h2' ? 'text-[14px] font-semibold' :
-                opt.value === 'h3' ? 'text-[13px] font-medium' :
-                'text-[12px]',
+                opt.value === 'h3' ? 'text-[13px] font-medium' : 'text-[12px]',
               ].join(' ')}
             >
               {opt.label}
@@ -443,164 +346,19 @@ function AutosaveIndicator({ status }) {
     idle: { text: '', show: false },
     saving: { text: 'Kaydediliyor...', show: true, color: '#888898' },
     saved: { text: 'Kaydedildi', show: true, color: '#4ade80' },
-    error: { text: 'Kaydetme hatası', show: true, color: '#f87171' },
+    error: { text: 'Hata', show: true, color: '#f87171' },
   }[status] || { show: false };
 
   return (
-    <div
-      className={[
-        'flex items-center gap-1.5 transition-all duration-300',
-        config.show ? 'opacity-100' : 'opacity-0',
-      ].join(' ')}
-    >
-      {status === 'saving' && (
-        <span className="h-1.5 w-1.5 rounded-full bg-[#888898] animate-pulse" />
-      )}
+    <div className={['flex items-center gap-1.5 transition-all duration-300', config.show ? 'opacity-100' : 'opacity-0'].join(' ')}>
+      {status === 'saving' && <span className="h-1.5 w-1.5 rounded-full bg-[#888898] animate-pulse" />}
       {status === 'saved' && (
         <svg width="11" height="11" viewBox="0 0 20 20" fill="#4ade80">
           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
         </svg>
       )}
-      {status === 'error' && (
-        <span className="h-1.5 w-1.5 rounded-full bg-[#f87171]" />
-      )}
-      <span className="text-[11px]" style={{ color: config.color }}>
-        {config.text}
-      </span>
-    </div>
-  );
-}
-
-// ─── Attachment Item ──────────────────────────────────────────────────────────
-
-function AttachmentItem({ attachment, onRemove }) {
-  const isImage = attachment.type?.startsWith('image/');
-
-  return (
-    <div className="group relative flex items-center gap-2.5 rounded-lg border border-[#2a2a38] bg-[#15151e] px-3 py-2.5 transition-all duration-150 hover:border-[#3a3a4a]">
-      {isImage && attachment.preview ? (
-        <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-[#0e0e14]">
-          <img src={attachment.preview} alt={attachment.name} className="h-full w-full object-cover" />
-        </div>
-      ) : (
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-[#1e1e28]">
-          {isImage ? (
-            <span className="text-[#6c6af6]"><IconImage /></span>
-          ) : (
-            <span className="text-[#f87171]"><IconPDF /></span>
-          )}
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[12.5px] font-medium text-[#c0c0cc]">{attachment.name}</p>
-        <p className="text-[11px] text-[#555568]">{attachment.size}</p>
-      </div>
-
-      <button
-        onClick={() => onRemove(attachment.id)}
-        className="flex-shrink-0 rounded-md p-1 text-[#44445a] opacity-0 transition-all duration-150 group-hover:opacity-100 hover:bg-[#2a1520] hover:text-[#f87171]"
-      >
-        <IconClose />
-      </button>
-    </div>
-  );
-}
-
-// ─── Drawing Toolbar Placeholder ──────────────────────────────────────────────
-
-function DrawingToolbar({ visible, onClose }) {
-  const [activeTool, setActiveTool] = useState('pencil');
-  const [strokeColor, setStrokeColor] = useState('#9d9cf8');
-  const [strokeSize, setStrokeSize] = useState('medium');
-
-  const tools = [
-    { id: 'pencil', icon: <IconPencil />, label: 'Kalem' },
-    { id: 'eraser', icon: <IconEraser />, label: 'Silgi' },
-    { id: 'shape', icon: <IconShape />, label: 'Şekil' },
-  ];
-
-  const colors = ['#9d9cf8', '#60a5fa', '#4ade80', '#fbbf24', '#f87171', '#f472b6', '#d0d0da'];
-  const sizes = [
-    { id: 'small', px: 2 },
-    { id: 'medium', px: 4 },
-    { id: 'large', px: 7 },
-  ];
-
-  if (!visible) return null;
-
-  return (
-    <div className="flex items-center gap-3 border-t border-[#1e1e26] bg-[#0f0f18] px-4 py-2.5 animate-in">
-      {/* Tools */}
-      <div className="flex items-center gap-0.5">
-        {tools.map(tool => (
-          <ToolbarBtn
-            key={tool.id}
-            active={activeTool === tool.id}
-            onClick={() => setActiveTool(tool.id)}
-            title={tool.label}
-          >
-            {tool.icon}
-          </ToolbarBtn>
-        ))}
-      </div>
-
-      <ToolbarDivider />
-
-      {/* Colors */}
-      <div className="flex items-center gap-1">
-        {colors.map(c => (
-          <button
-            key={c}
-            onClick={() => setStrokeColor(c)}
-            className={[
-              'h-4 w-4 rounded-full transition-all duration-100',
-              strokeColor === c ? 'ring-2 ring-[#6c6af6] ring-offset-1 ring-offset-[#0f0f18] scale-110' : 'hover:scale-110',
-            ].join(' ')}
-            style={{ backgroundColor: c }}
-          />
-        ))}
-      </div>
-
-      <ToolbarDivider />
-
-      {/* Stroke size */}
-      <div className="flex items-center gap-1.5">
-        {sizes.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setStrokeSize(s.id)}
-            className={[
-              'flex h-7 w-8 items-center justify-center rounded-md transition-all duration-100',
-              strokeSize === s.id ? 'bg-[#6c6af6]/20' : 'hover:bg-[#1e1e28]',
-            ].join(' ')}
-          >
-            <span
-              className="rounded-full transition-colors"
-              style={{
-                width: s.px * 2 + 4,
-                height: s.px,
-                backgroundColor: strokeColor,
-              }}
-            />
-          </button>
-        ))}
-      </div>
-
-      <ToolbarDivider />
-
-      {/* Canvas placeholder note */}
-      <span className="text-[11px] text-[#44445a] italic flex-1">
-        Çizim tuvali — yakında aktif olacak
-      </span>
-
-      {/* Close */}
-      <button
-        onClick={onClose}
-        className="flex h-6 w-6 items-center justify-center rounded-md text-[#44445a] hover:bg-[#1e1e28] hover:text-[#a0a0b0] transition-colors"
-      >
-        <IconClose />
-      </button>
+      {status === 'error' && <span className="h-1.5 w-1.5 rounded-full bg-[#f87171]" />}
+      <span className="text-[11px]" style={{ color: config.color }}>{config.text}</span>
     </div>
   );
 }
@@ -609,29 +367,19 @@ function DrawingToolbar({ visible, onClose }) {
 
 function TagInput({ tags, onChange }) {
   const [input, setInput] = useState('');
-
   const addTag = (val) => {
     const t = val.trim().replace(/^#+/, '');
     if (t && !tags.includes(t)) onChange([...tags, t]);
     setInput('');
   };
-
   const removeTag = (t) => onChange(tags.filter(x => x !== t));
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tags.map(t => (
-        <span
-          key={t}
-          className="group flex items-center gap-1 rounded-full bg-[#6c6af6]/10 border border-[#6c6af6]/20 px-2.5 py-0.5"
-        >
+        <span key={t} className="group flex items-center gap-1 rounded-full bg-[#6c6af6]/10 border border-[#6c6af6]/20 px-2.5 py-0.5">
           <span className="text-[11px] font-medium text-[#9d9cf8]">#{t}</span>
-          <button
-            onClick={() => removeTag(t)}
-            className="text-[#6c6af6]/40 hover:text-[#f87171] transition-colors"
-          >
-            <IconClose />
-          </button>
+          <button onClick={() => removeTag(t)} className="text-[#6c6af6]/40 hover:text-[#f87171] transition-colors"><IconClose /></button>
         </span>
       ))}
       <input
@@ -650,31 +398,43 @@ function TagInput({ tags, onChange }) {
 
 // ─── Main NoteEditor ──────────────────────────────────────────────────────────
 
-// ─── Main NoteEditor ──────────────────────────────────────────────────────────
-
 export default function NoteEditor({ note, onSave, onClose }) {
-  // ── State
-  const [title, setTitle] = useState(note?.title || '');
-  const [content, setContent] = useState(note?.content || '');
-  const [tags, setTags] = useState(note?.tags || []);
+  // ── Temel State
+  const [title, setTitle]           = useState(note?.title || '');
+  const [content, setContent]       = useState(note?.content || '');
+  const [tags, setTags]             = useState(note?.tags || []);
   const [isFavorited, setIsFavorited] = useState(note?.favorite || note?.favorited || false);
   const [autosaveStatus, setAutosaveStatus] = useState('idle');
-  const [showDrawing, setShowDrawing] = useState(false);
-  const [attachments, setAttachments] = useState(note?.attachments || []);
-  const [fontSize, setFontSize] = useState('16');
-  const [textColor, setTextColor] = useState('#d0d0da');
+  const [editorMode, setEditorMode] = useState('text'); // 'text' | 'draw' | 'pdf'
+
+  // ── Çizim & PDF Annotation State (yeni)
+  // handwritingBase64: DrawMode canvas'ının base64 PNG'si
+  const [handwritingBase64, setHandwritingBase64] = useState(note?.handwritingBase64 || null);
+  // pdfAnnotations: { [pageNumber]: base64DataUrl } — JSON olarak saklanır
+  const [pdfAnnotations, setPdfAnnotations] = useState(() => {
+    if (!note?.pdfAnnotations) return {};
+    if (typeof note.pdfAnnotations === 'string') {
+      try { return JSON.parse(note.pdfAnnotations); } catch { return {}; }
+    }
+    return note.pdfAnnotations;
+  });
+
+  // ── Formatlama State
+  const [fontSize, setFontSize]         = useState('16');
+  const [textColor, setTextColor]       = useState('#d0d0da');
   const [highlightColor, setHighlightColor] = useState('transparent');
-  const [headingType, setHeadingType] = useState('p');
+  const [headingType, setHeadingType]   = useState('p');
+
+  // ── Sayaç State
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
 
-  const editorRef = useRef(null);
-  const titleRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const editorRef    = useRef(null);
+  const titleRef     = useRef(null);
   const autosaveTimer = useRef(null);
-  const saveTimer = useRef(null);
+  const saveTimer    = useRef(null);
 
-  // ── Word/char count (DÜZELTME: HTML etiketlerini kelime saymaması için temizlendi)
+  // ── Word/char count
   useEffect(() => {
     const textOnly = content.replace(/<[^>]+>/g, '');
     const words = textOnly.trim() ? textOnly.trim().split(/\s+/).length : 0;
@@ -682,31 +442,49 @@ export default function NoteEditor({ note, onSave, onClose }) {
     setCharCount(textOnly.length);
   }, [content]);
 
-  // ── Autosave logic (DÜZELTME: folderId kaybolmasın diye ...note eklendi)
-  const triggerAutosave = useCallback(() => {
+  // ── Merkezi kaydetme fonksiyonu — tüm alanları birleştirip gönderir
+  const doSave = useCallback((overrides = {}) => {
     setAutosaveStatus('saving');
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      onSave?.({ 
-        ...note, // Çok önemli: Klasör ID'sini ve diğer verileri korur
-        title, 
-        content, 
-        tags, 
-        favorite: isFavorited, 
-        attachments 
+      onSave?.({
+        ...note,
+        title,
+        content,
+        tags,
+        favorite: isFavorited,
+        ...overrides,
       });
       setAutosaveStatus('saved');
       clearTimeout(autosaveTimer.current);
       autosaveTimer.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
     }, 800);
-  }, [note, title, content, tags, isFavorited, attachments, onSave]);
+  }, [note, title, content, tags, isFavorited, handwritingBase64, pdfAnnotations, onSave]);
 
+  // ── Text/title/tags/favori değişince otomatik kaydet
   useEffect(() => {
-    if (title || content) triggerAutosave();
-    return () => { clearTimeout(saveTimer.current); clearTimeout(autosaveTimer.current); };
+    if (title.trim() || content.trim() || tags.length > 0 || isFavorited !== note?.favorite) {
+      doSave();
+    }
+    return () => {
+      clearTimeout(saveTimer.current);
+      clearTimeout(autosaveTimer.current);
+    };
   }, [title, content, tags, isFavorited]);
 
-  // ── execCommand helpers (contentEditable)
+  // ── DrawMode'dan gelen çizimi state'e yaz + kaydet
+  const handleDrawingChange = useCallback((base64) => {
+    setHandwritingBase64(base64);
+    doSave({ handwritingBase64: base64 });
+  }, [doSave]);
+
+  // ── PdfMode'dan gelen annotation'ları state'e yaz + kaydet
+  const handleAnnotationChange = useCallback((annotations) => {
+    setPdfAnnotations(annotations);
+    doSave({ pdfAnnotations: JSON.stringify(annotations) });
+  }, [doSave]);
+
+  // ── execCommand helpers
   const exec = useCallback((cmd, value = null) => {
     editorRef.current?.focus();
     document.execCommand(cmd, false, value);
@@ -721,219 +499,227 @@ export default function NoteEditor({ note, onSave, onClose }) {
     exec('formatBlock', type);
   }, [exec]);
 
-  const handleFileSelect = useCallback((e) => {
-    const files = Array.from(e.target.files || []);
-    const newAttachments = files.map(f => ({
-      id: Math.random().toString(36).slice(2),
-      name: f.name,
-      type: f.type,
-      size: f.size > 1024 * 1024
-        ? `${(f.size / 1024 / 1024).toFixed(1)} MB`
-        : `${Math.round(f.size / 1024)} KB`,
-      preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : null,
-    }));
-    setAttachments(prev => [...prev, ...newAttachments]);
-    e.target.value = '';
-  }, []);
-
-  const removeAttachment = useCallback((id) => {
-    setAttachments(prev => prev.filter(a => a.id !== id));
-  }, []);
-
-  // ── Initial Mount & Safe HTML Load (BÜYÜK DÜZELTME: İmleç kaybolmasını engeller)
   useEffect(() => {
     titleRef.current?.focus();
-    // React'in döngüsüne sokmadan, HTML içeriğini sadece ilk girişte DOM'a basıyoruz
     if (editorRef.current && !editorRef.current.innerHTML) {
       editorRef.current.innerHTML = note?.content || '';
     }
   }, []);
 
-  const today = new Date().toLocaleDateString('tr-TR', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  });
+  const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <div className="flex flex-col h-full bg-[#111119] transition-all duration-200">
-      
-      {/* ── Editor Header ───────────────────────────────────────────────────── */}
-      <div className="flex h-12 flex-shrink-0 items-center gap-2 border-b border-[#1e1e26] bg-[#0f0f18] px-4">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <button
-            onClick={onClose}
-            className="flex-shrink-0 flex items-center gap-1.5 rounded-md px-2 py-1 text-[#555568] hover:bg-[#1e1e28] hover:text-[#a0a0b0] transition-all text-[12px]"
-          >
-            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            Notlar
-          </button>
-          <span className="text-[#2a2a38]">/</span>
-          <span className="truncate text-[12.5px] text-[#888898]">
-            {title || 'İsimsiz Not'}
-          </span>
-        </div>
 
-        <div className="flex items-center gap-1">
-          <AutosaveIndicator status={autosaveStatus} />
-          <div className="mx-2 h-4 w-px bg-[#2a2a38]" />
-          <ToolbarBtn
-            onClick={() => setIsFavorited(p => !p)}
-            active={isFavorited}
-            title={isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-          >
-            <span className={isFavorited ? 'text-[#fbbf24]' : ''}>
-              {/* Not: İkonu yukarıdaki component listenden otomatik alacaktır */}
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      {/* ── HEADER ───────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-shrink-0 bg-[#0a0a10] border-b border-[#1a1a24] shadow-sm z-10">
+
+        {/* Top Row */}
+        <div className="flex h-14 items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              onClick={onClose}
+              className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full text-[#70708a] hover:bg-[#1e1e2e] hover:text-[#d0d0e8] transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
-            </span>
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => fileInputRef.current?.click()} title="Dosya ekle">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
-            </svg>
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => setShowDrawing(p => !p)} active={showDrawing} title="Çizim araçları">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-            </svg>
-          </ToolbarBtn>
-        </div>
-      </div>
+            </button>
 
-      {/* ── Formatting Toolbar ───────────────────────────────────────────────── */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-0.5 border-b border-[#1a1a24] bg-[#0d0d16] px-3 py-1.5">
-        <ToolbarBtn onClick={() => exec('undo')} title="Geri al (Ctrl+Z)">Geri</ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('redo')} title="Yinele (Ctrl+Y)">İleri</ToolbarBtn>
-        <ToolbarDivider />
-        <HeadingSelect value={headingType} onChange={applyHeading} />
-        <ToolbarDivider />
-        <FontSizeSelect value={fontSize} onChange={(s) => { setFontSize(s); exec('fontSize', '7'); }} />
-        <ToolbarDivider />
-        <ToolbarBtn onClick={() => exec('bold')} active={queryCmd('bold')} title="Kalın (Ctrl+B)">B</ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('italic')} active={queryCmd('italic')} title="İtalik (Ctrl+I)">I</ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('underline')} active={queryCmd('underline')} title="Altı çizili (Ctrl+U)">U</ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('strikeThrough')} active={queryCmd('strikeThrough')} title="Üstü çizili">S</ToolbarBtn>
-        <ToolbarDivider />
-        <ColorPicker textColor={textColor} onTextColor={(c) => { setTextColor(c); exec('foreColor', c); }} highlightColor={highlightColor} onHighlight={(c) => { setHighlightColor(c); exec('hiliteColor', c); }} />
-        <ToolbarDivider />
-        <ToolbarBtn onClick={() => exec('justifyLeft')} title="Sola hizala">Sol</ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('justifyCenter')} title="Ortala">Orta</ToolbarBtn>
-        <ToolbarDivider />
-        <ToolbarBtn onClick={() => exec('insertUnorderedList')} active={queryCmd('insertUnorderedList')} title="Madde listesi">•</ToolbarBtn>
-        <ToolbarBtn onClick={() => exec('insertOrderedList')} active={queryCmd('insertOrderedList')} title="Sıralı liste">1.</ToolbarBtn>
-      </div>
+            <div className="h-4 w-px bg-[#2a2a38]" />
 
-      <DrawingToolbar visible={showDrawing} onClose={() => setShowDrawing(false)} />
-
-      {/* ── Scrollable Editor Body ───────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2a2a36] scrollbar-thin scrollbar-thumb-[#2a2a36]">
-        <div className="mx-auto w-full max-w-3xl px-8 py-8 md:px-12">
-          
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-widest text-[#333344] select-none">
-            {today}
-          </p>
-
-          <input
-            ref={titleRef}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="İsimsiz Not"
-            className="w-full bg-transparent outline-none text-[28px] font-bold tracking-[-0.03em] text-white placeholder:text-[#2e2e3e] mb-4 leading-tight transition-colors duration-150"
-            style={{ caretColor: '#6c6af6' }}
-          />
-
-          <div className="mb-6 flex items-center gap-2">
-            <span className="flex-shrink-0 text-[#333344]">#</span>
-            <TagInput tags={tags} onChange={setTags} />
+            <input
+              ref={titleRef}
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="İsimsiz Not"
+              className="w-full max-w-md bg-transparent outline-none text-[15px] font-[500] tracking-wide text-[#c8c8dc] placeholder:text-[#50506a] transition-colors"
+            />
           </div>
 
-          <div className="mb-6 h-px bg-[#1a1a24]" />
+          <div className="flex items-center gap-3">
+            <AutosaveIndicator status={autosaveStatus} />
 
-          {/* BÜYÜK DÜZELTME: dangerouslySetInnerHTML TAMAMEN KALDIRILDI! */}
-          <div
-            ref={editorRef}
-            contentEditable="true"
-            suppressContentEditableWarning
-            onInput={e => setContent(e.currentTarget.innerHTML)}
-            data-placeholder="Yazmaya başla..."
-            className={[
-              'min-h-[360px] outline-none',
-              'text-[16px] leading-[1.75] text-[#c0c0cc]',
-              '[&:empty]:before:content-[attr(data-placeholder)]',
-              '[&:empty]:before:text-[#2e2e3e]',
-              '[&:empty]:before:pointer-events-none',
-              '[&_h1]:text-[26px] [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:tracking-tight',
-              '[&_h2]:text-[20px] [&_h2]:font-semibold [&_h2]:text-[#d8d8e4] [&_h2]:mb-2.5 [&_h2]:mt-5',
-              '[&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[#c0c0cc] [&_h3]:mb-2 [&_h3]:mt-4',
-              '[&_p]:mb-3',
-              '[&_blockquote]:border-l-2 [&_blockquote]:border-[#6c6af6]/50 [&_blockquote]:pl-4 [&_blockquote]:text-[#888898] [&_blockquote]:italic [&_blockquote]:my-4',
-              '[&_pre]:bg-[#0d0d16] [&_pre]:border [&_pre]:border-[#2a2a38] [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:text-[13px] [&_pre]:font-mono [&_pre]:text-[#9d9cf8] [&_pre]:my-4 [&_pre]:overflow-x-auto',
-              '[&_code]:bg-[#1a1a28] [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_code]:font-mono [&_code]:text-[#9d9cf8]',
-              '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1',
-              '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1',
-              '[&_li]:leading-relaxed',
-              '[&_a]:text-[#6c6af6] [&_a]:underline [&_a]:underline-offset-2',
-              '[&_strong]:text-white [&_strong]:font-semibold',
-              'focus:outline-none',
-            ].join(' ')}
-            style={{
-              fontSize: `${fontSize}px`,
-              color: textColor,
-              caretColor: '#6c6af6',
-            }}
-          />
+            <div className="h-4 w-px bg-[#2a2a38]" />
 
-          {attachments.length > 0 && (
-            <div className="mt-8">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-px flex-1 bg-[#1a1a24]" />
-                <span className="text-[11px] font-medium uppercase tracking-widest text-[#333344] px-2">
-                  Ekler ({attachments.length})
-                </span>
-                <div className="h-px flex-1 bg-[#1a1a24]" />
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {attachments.map(a => (
-                  <AttachmentItem key={a.id} attachment={a} onRemove={removeAttachment} />
-                ))}
-              </div>
+            {/* Mode Switcher */}
+            <div className="flex items-center rounded-lg bg-[#14141e] p-1 border border-[#1e1e2c]">
+              {[
+                { key: 'text', icon: <IconTextMode />, title: 'Metin Modu' },
+                { key: 'draw', icon: <IconPencil />, title: 'Çizim Modu' },
+                { key: 'pdf',  icon: <IconPDF />,    title: 'PDF Modu' }
+              ].map(({ key, icon, title }) => (
+                <button
+                  key={key}
+                  onClick={() => setEditorMode(key)}
+                  title={title}
+                  className={[
+                    'flex h-7 w-9 items-center justify-center rounded-md transition-all duration-200',
+                    editorMode === key
+                      ? 'bg-[#6c6af6] text-white shadow-md'
+                      : 'text-[#666678] hover:text-[#b0b0c0] hover:bg-[#1e1e2e]'
+                  ].join(' ')}
+                >
+                  {icon}
+                </button>
+              ))}
             </div>
-          )}
 
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e2c] py-6 cursor-pointer transition-all duration-150 hover:border-[#6c6af6]/30 hover:bg-[#6c6af6]/[0.02] group"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1a1a24] text-[#3a3a50] transition-colors group-hover:bg-[#6c6af6]/10 group-hover:text-[#6c6af6]">
-              +
-            </span>
-            <p className="mt-2 text-[12px] text-[#333344] group-hover:text-[#555568] transition-colors">
-              Dosya eklemek için tıkla veya sürükle
-            </p>
-            <p className="text-[11px] text-[#252532] mt-0.5">PNG, JPG, PDF — maks. 20 MB</p>
+            <div className="h-4 w-px bg-[#2a2a38]" />
+
+            {/* Favori */}
+            <button
+              onClick={() => setIsFavorited(p => !p)}
+              title={isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+              className={[
+                'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200',
+                isFavorited
+                  ? 'text-[#fbbf24] bg-[#fbbf24]/10'
+                  : 'text-[#666678] hover:bg-[#1e1e2e] hover:text-[#b0b0c0]'
+              ].join(' ')}
+            >
+              <IconStar />
+            </button>
           </div>
-          <div className="h-16" />
         </div>
+
+        {/* Formatting Toolbar — sadece text modunda */}
+        {editorMode === 'text' && (
+          <div className="flex items-center gap-1.5 flex-wrap px-4 sm:px-6 py-2 bg-[#0d0d16] border-t border-[#1a1a24]">
+            <ToolbarBtn onClick={() => exec('undo')} title="Geri al (Ctrl+Z)"><IconUndo /></ToolbarBtn>
+            <ToolbarBtn onClick={() => exec('redo')} title="Yinele (Ctrl+Y)"><IconRedo /></ToolbarBtn>
+
+            <ToolbarDivider />
+
+            <HeadingSelect value={headingType} onChange={applyHeading} />
+
+            <ToolbarDivider />
+
+            <FontSizeSelect value={fontSize} onChange={(s) => { setFontSize(s); exec('fontSize', '7'); }} />
+
+            <ToolbarDivider />
+
+            <div className="flex items-center gap-0.5 rounded-lg bg-[#14141e] border border-[#1e1e2c] p-0.5">
+              <ToolbarBtn onClick={() => exec('bold')} active={queryCmd('bold')} title="Kalın (Ctrl+B)"><IconBold /></ToolbarBtn>
+              <ToolbarBtn onClick={() => exec('italic')} active={queryCmd('italic')} title="İtalik (Ctrl+I)"><IconItalic /></ToolbarBtn>
+              <ToolbarBtn onClick={() => exec('underline')} active={queryCmd('underline')} title="Altı çizili (Ctrl+U)"><IconUnderline /></ToolbarBtn>
+              <ToolbarBtn onClick={() => exec('strikeThrough')} active={queryCmd('strikeThrough')} title="Üstü çizili"><IconStrikethrough /></ToolbarBtn>
+            </div>
+
+            <ToolbarDivider />
+
+            <ColorPicker
+              textColor={textColor}
+              onTextColor={(c) => { setTextColor(c); exec('foreColor', c); }}
+              highlightColor={highlightColor}
+              onHighlight={(c) => { setHighlightColor(c); exec('hiliteColor', c); }}
+            />
+
+            <ToolbarDivider />
+
+            <div className="flex items-center gap-0.5 rounded-lg bg-[#14141e] border border-[#1e1e2c] p-0.5">
+              <ToolbarBtn onClick={() => exec('justifyLeft')} title="Sola hizala"><IconAlignLeft /></ToolbarBtn>
+              <ToolbarBtn onClick={() => exec('justifyCenter')} title="Ortala"><IconAlignCenter /></ToolbarBtn>
+            </div>
+
+            <ToolbarDivider />
+
+            <div className="flex items-center gap-0.5 rounded-lg bg-[#14141e] border border-[#1e1e2c] p-0.5">
+              <ToolbarBtn onClick={() => exec('insertUnorderedList')} active={queryCmd('insertUnorderedList')} title="Madde listesi"><IconList /></ToolbarBtn>
+              <ToolbarBtn onClick={() => exec('insertOrderedList')} active={queryCmd('insertOrderedList')} title="Sıralı liste"><IconOrderedList /></ToolbarBtn>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Status Bar ──────────────────────────────────────────────────────── */}
+      {/* ── Editor Body ──────────────────────────────────────────────────────── */}
+
+      {/* 
+        DrawMode ve PdfMode her zaman DOM'da tutulur (display:none ile gizlenir).
+        Böylece mod değiştirildiğinde canvas içeriği sıfırlanmaz.
+      */}
+      <div
+        className="flex-1 overflow-hidden"
+        style={{ display: editorMode === 'draw' ? 'flex' : 'none', flexDirection: 'column' }}
+      >
+        <DrawMode
+          initialData={handwritingBase64}
+          onDrawingChange={handleDrawingChange}
+        />
+      </div>
+
+      <div
+        className="flex-1 overflow-hidden"
+        style={{ display: editorMode === 'pdf' ? 'flex' : 'none', flexDirection: 'column' }}
+      >
+        <PdfMode
+          initialAnnotations={pdfAnnotations}
+          onAnnotationChange={handleAnnotationChange}
+        />
+      </div>
+
+      {editorMode === 'text' && (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2a2a36]">
+          <div className="mx-auto w-full max-w-3xl px-8 py-8 md:px-12">
+
+            <p className="mb-4 text-[11px] font-medium uppercase tracking-widest text-[#333344] select-none">
+              {today}
+            </p>
+
+            <div className="mb-6 flex items-center gap-2">
+              <span className="flex-shrink-0 text-[#333344]">#</span>
+              <TagInput tags={tags} onChange={setTags} />
+            </div>
+
+            <div className="mb-6 h-px bg-[#1a1a24]" />
+
+            <div
+              ref={editorRef}
+              contentEditable="true"
+              suppressContentEditableWarning
+              onInput={e => setContent(e.currentTarget.innerHTML)}
+              data-placeholder="Yazmaya başla..."
+              className={[
+                'min-h-[360px] outline-none',
+                'text-[16px] leading-[1.75] text-[#c0c0cc]',
+                '[&:empty]:before:content-[attr(data-placeholder)]',
+                '[&:empty]:before:text-[#2e2e3e]',
+                '[&:empty]:before:pointer-events-none',
+                '[&_h1]:text-[26px] [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:tracking-tight',
+                '[&_h2]:text-[20px] [&_h2]:font-semibold [&_h2]:text-[#d8d8e4] [&_h2]:mb-2.5 [&_h2]:mt-5',
+                '[&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[#c0c0cc] [&_h3]:mb-2 [&_h3]:mt-4',
+                '[&_p]:mb-3',
+                '[&_blockquote]:border-l-2 [&_blockquote]:border-[#6c6af6]/50 [&_blockquote]:pl-4 [&_blockquote]:text-[#888898] [&_blockquote]:italic [&_blockquote]:my-4',
+                '[&_pre]:bg-[#0d0d16] [&_pre]:border [&_pre]:border-[#2a2a38] [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:text-[13px] [&_pre]:font-mono [&_pre]:text-[#9d9cf8] [&_pre]:my-4 [&_pre]:overflow-x-auto',
+                '[&_code]:bg-[#1a1a28] [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_code]:font-mono [&_code]:text-[#9d9cf8]',
+                '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1',
+                '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1',
+                '[&_li]:leading-relaxed',
+                '[&_a]:text-[#6c6af6] [&_a]:underline [&_a]:underline-offset-2',
+                '[&_strong]:text-white [&_strong]:font-semibold',
+                'focus:outline-none',
+              ].join(' ')}
+              style={{
+                fontSize: `${fontSize}px`,
+                color: textColor,
+                caretColor: '#6c6af6',
+              }}
+            />
+            <div className="h-16" />
+          </div>
+        </div>
+      )}
+
+      {/* ── Status Bar ───────────────────────────────────────────────────────── */}
       <div className="flex flex-shrink-0 items-center justify-between border-t border-[#1a1a24] bg-[#0d0d16] px-6 py-1.5">
         <div className="flex items-center gap-4 text-[11px] text-[#333344] select-none">
           <span>{wordCount} kelime</span>
           <span>{charCount} karakter</span>
-          {attachments.length > 0 && (
-            <span>{attachments.length} ek</span>
-          )}
         </div>
         <div className="flex items-center gap-3">
-          <AutosaveIndicator status={autosaveStatus} />
-          <span className="text-[11px] text-[#252532] select-none">Ctrl+S ile kaydet</span>
+          <span className="text-[11px] text-[#252532] select-none">Otomatik kaydedilir</span>
         </div>
       </div>
-
-      <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -90,8 +91,6 @@ function stripMarkdown(text = '') {
 
 function ContextMenu({ x, y, onClose, onFavorite, isFavorited, onDelete }) {
   const items = [
-    { icon: <IconPencil />, label: 'Düzenle',           action: onClose },
-    { icon: <IconCopy />,   label: 'Kopyala',            action: onClose },
     { icon: <IconStar filled={isFavorited} />,
                             label: isFavorited ? 'Favoriden Çıkar' : 'Favoriye Ekle',
                             action: () => { onFavorite(); onClose(); } },
@@ -99,7 +98,7 @@ function ContextMenu({ x, y, onClose, onFavorite, isFavorited, onDelete }) {
     { icon: <IconTrash />,  label: 'Sil', danger: true,  action: () => { onDelete?.(); onClose(); } },
   ];
 
-  return (
+  return createPortal(
     <>
       {/* Invisible overlay to capture outside clicks */}
       <div className="fixed inset-0 z-[998]" onClick={onClose} aria-hidden="true" />
@@ -130,10 +129,10 @@ function ContextMenu({ x, y, onClose, onFavorite, isFavorited, onDelete }) {
           )
         )}
       </div>
-    </>
+    </>,
+    document.body
   );
 }
-
 // ─── Word count chip ──────────────────────────────────────────────────────────
 
 function WordCountChip({ text }) {
@@ -221,7 +220,7 @@ export default function NoteCard({
     e.preventDefault();
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    setCtx({ x: rect.left, y: rect.bottom + 4 });
+    setCtx({ x: rect.right - 160, y: rect.bottom + 4 });
   }, []);
 
   // ── Grid variant ────────────────────────────────────────────────────────────

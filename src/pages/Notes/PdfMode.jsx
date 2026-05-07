@@ -1,159 +1,667 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Stage, Layer, Line } from 'react-konva';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Çok Kritik: react-pdf'in çalışması için "worker" ayarı (Tarayıcıyı çökertmemek için)
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
-export default function PdfMode() {
-  const [file, setFile] = useState(null);
-  const [numPages, setNumPages] = useState(null);
+// ─────────────────────────────────────────────────────────────
+// SABİTLER
+// ─────────────────────────────────────────────────────────────
+const PDF_WIDTH = 794;
+
+const COLORS = [
+  '#ef4444', '#f97316', '#eab308',
+  '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899',
+];
+
+const TOOLS = {
+  pen: {
+    label: 'Kalem', icon: '✏️',
+    setup: (ctx, color, size) => {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    },
+  },
+  highlight: {
+    label: 'Fosforlu', icon: '🖊️',
+    setup: (ctx, color, size, opacity) => {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = opacity;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size * 6;
+      ctx.lineCap = 'square';
+      ctx.lineJoin = 'bevel';
+    },
+  },
+  arrow: {
+    label: 'Ok', icon: '➡️',
+  },
+  text: {
+    label: 'Metin', icon: '🔤',
+  },
+  eraser: {
+    label: 'Silgi', icon: '⬜',
+    setup: (ctx, _c, size) => {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+      ctx.lineWidth = size * 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    },
+  },
+};
+
+const MAX_HISTORY = 30;
+
+// ─────────────────────────────────────────────────────────────
+// YARDIMCI FONKSİYONLAR
+// ─────────────────────────────────────────────────────────────
+function getPointerPos(e, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const src  = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, size) {
+  const headLen = Math.max(16, size * 4);
+  const angle   = Math.atan2(y2 - y1, x2 - x1);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = color;
+  ctx.fillStyle   = color;
+  ctx.lineWidth   = size;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(
+    x2 - headLen * Math.cos(angle - Math.PI / 6),
+    y2 - headLen * Math.sin(angle - Math.PI / 6),
+  );
+  ctx.lineTo(
+    x2 - headLen * Math.cos(angle + Math.PI / 6),
+    y2 - headLen * Math.sin(angle + Math.PI / 6),
+  );
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ─────────────────────────────────────────────────────────────
+// ANA BİLEŞEN
+// ─────────────────────────────────────────────────────────────
+export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
+  const [file,       setFile]       = useState(null);
+  const [fileName,   setFileName]   = useState('');
+  const [numPages,   setNumPages]   = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
-  
-  // Çizim State'leri
-  const [lines, setLines] = useState([]);
-  const [tool, setTool] = useState('pen'); // 'pen' veya 'highlighter' veya 'eraser'
-  const [color, setColor] = useState('#ff4d4d');
-  const [strokeWidth, setStrokeWidth] = useState(3);
-  const isDrawing = useRef(false);
+  const [pdfReady,   setPdfReady]   = useState(false);
+  const [pageHeight, setPageHeight] = useState(1123);
 
-  // PDF Yükleme
-  const onFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) setFile(selectedFile);
-  };
+  const pageAnnotations = useRef(
+    initialAnnotations ? { ...initialAnnotations } : {}
+  );
 
+  const [tool,       setTool]      = useState('pen');
+  const [color,      setColor]     = useState('#ef4444');
+  const [strokeSize, setSize]      = useState(3);
+  const [hlOpacity,  setHlOpacity] = useState(0.4);
+  const [canUndo,    setCanUndo]   = useState(false);
+  const [canRedo,    setCanRedo]   = useState(false);
+
+  const [textInput,  setTextInput] = useState({ visible: false, x: 0, y: 0, value: '' });
+
+  const arrowStart = useRef(null);
+  const canvasRef   = useRef(null);
+  const historyRef  = useRef({});
+  const redoRef     = useRef({});
+  const isDrawing   = useRef(false);
+  const lastPts     = useRef([]);
+
+  // ── initialAnnotations değişince ref'i güncelle
+  useEffect(() => {
+    if (initialAnnotations) {
+      pageAnnotations.current = { ...initialAnnotations };
+    }
+  }, [initialAnnotations]);
+
+  // ── Üste bildir
+  const notifyChange = useCallback(() => {
+    if (!onAnnotationChange) return;
+    onAnnotationChange({ ...pageAnnotations.current });
+  }, [onAnnotationChange]);
+
+  // ─── Sayfa yükleme
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
     setPageNumber(1);
+    setPdfReady(true);
   };
 
-  // --- ÇİZİM FONKSİYONLARI ---
-  const handleMouseDown = (e) => {
+  const onPageRenderSuccess = ({ height }) => {
+    setPageHeight(height);
+    restorePageAnnotations(pageNumber);
+  };
+
+  useEffect(() => {
+    if (!pdfReady) return;
+    restorePageAnnotations(pageNumber);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageNumber, pdfReady]);
+
+  // ─── Canvas boyutlandırma
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (canvas.width === PDF_WIDTH && canvas.height === pageHeight) return;
+    const saved = pageAnnotations.current[pageNumber];
+    canvas.width  = PDF_WIDTH;
+    canvas.height = pageHeight;
+    if (saved) {
+      const img = new Image();
+      img.onload = () => canvas.getContext('2d').drawImage(img, 0, 0);
+      img.src = saved;
+    }
+  }, [pageHeight, pageNumber]);
+
+  // ─── History
+  function getPageHistory() { return historyRef.current[pageNumber] ?? (historyRef.current[pageNumber] = []); }
+  function getPageRedo()    { return redoRef.current[pageNumber]    ?? (redoRef.current[pageNumber]    = []); }
+
+  const saveSnapshot = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const hist = getPageHistory();
+    hist.push(canvas.toDataURL());
+    if (hist.length > MAX_HISTORY) hist.shift();
+    redoRef.current[pageNumber] = [];
+    setCanUndo(true);
+    setCanRedo(false);
+    pageAnnotations.current[pageNumber] = canvas.toDataURL();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageNumber]);
+
+  const restorePageAnnotations = useCallback((page) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx    = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const saved  = pageAnnotations.current[page];
+    if (saved) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.src = saved;
+    }
+    const hist = historyRef.current[page] ?? [];
+    const redo = redoRef.current[page]    ?? [];
+    setCanUndo(hist.length > 0);
+    setCanRedo(redo.length > 0);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const hist = getPageHistory();
+    const redo = getPageRedo();
+    if (!hist.length) return;
+    redo.push(canvas.toDataURL());
+    const prev = hist.pop();
+    const ctx  = canvas.getContext('2d');
+    const img  = new Image();
+    img.onload = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0); };
+    img.src    = prev;
+    pageAnnotations.current[pageNumber] = prev;
+    setCanUndo(hist.length > 0);
+    setCanRedo(true);
+    setTimeout(notifyChange, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageNumber, notifyChange]);
+
+  const handleRedo = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const hist = getPageHistory();
+    const redo = getPageRedo();
+    if (!redo.length) return;
+    hist.push(canvas.toDataURL());
+    const next = redo.pop();
+    const ctx  = canvas.getContext('2d');
+    const img  = new Image();
+    img.onload = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0); };
+    img.src    = next;
+    pageAnnotations.current[pageNumber] = next;
+    setCanUndo(true);
+    setCanRedo(redo.length > 0);
+    setTimeout(notifyChange, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageNumber, notifyChange]);
+
+  const handleClearPage = useCallback(() => {
+    saveSnapshot();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    pageAnnotations.current[pageNumber] = null;
+    notifyChange();
+  }, [saveSnapshot, pageNumber, notifyChange]);
+
+  // ─── Çizim
+  const startDraw = useCallback((e) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const pos = getPointerPos(e, canvas);
+
+    if (tool === 'text') {
+      setTextInput({ visible: true, x: pos.x, y: pos.y, value: '' });
+      return;
+    }
+    if (tool === 'arrow') {
+      arrowStart.current = pos;
+      saveSnapshot();
+      return;
+    }
+
     isDrawing.current = true;
-    const pos = e.target.getStage().getPointerPosition();
-    // Kalem türüne göre şeffaflık (Fosforlu kalem efekti için opacity ekliyoruz)
-    setLines([...lines, { tool, color, strokeWidth, points: [pos.x, pos.y], page: pageNumber }]);
-  };
+    saveSnapshot();
+    lastPts.current   = [pos];
 
-  const handleMouseMove = (e) => {
+    const ctx = canvas.getContext('2d');
+    // Setup SADECE burada çağrılır
+    TOOLS[tool].setup(ctx, color, strokeSize, hlOpacity);
+
+    // Başlangıç noktası
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  }, [tool, color, strokeSize, hlOpacity, saveSnapshot]);
+
+  const continueDraw = useCallback((e) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const pos = getPointerPos(e, canvas);
+
+    if (tool === 'arrow' && arrowStart.current) {
+      const ctx = canvas.getContext('2d');
+      const hist = getPageHistory();
+      if (hist.length) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          drawArrow(ctx, arrowStart.current.x, arrowStart.current.y, pos.x, pos.y, color, strokeSize);
+        };
+        img.src = hist[hist.length - 1];
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawArrow(ctx, arrowStart.current.x, arrowStart.current.y, pos.x, pos.y, color, strokeSize);
+      }
+      return;
+    }
+
     if (!isDrawing.current) return;
-    const stage = e.target.getStage();
-    const point = stage.getPointerPosition();
-    let lastLine = lines[lines.length - 1];
-    
-    lastLine.points = lastLine.points.concat([point.x, point.y]);
-    lines.splice(lines.length - 1, 1, lastLine);
-    setLines(lines.concat());
-  };
 
-  const handleMouseUp = () => {
+    const ctx = canvas.getContext('2d');
+    lastPts.current.push(pos);
+
+    // ctx ayarlarını tekrar setup etme — başlangıçta zaten ayarlandı
+    const pts = lastPts.current;
+    ctx.beginPath();
+    if (pts.length >= 3) {
+      const p0  = pts[pts.length - 3];
+      const p1  = pts[pts.length - 2];
+      const p2  = pts[pts.length - 1];
+      const mx1 = (p0.x + p1.x) / 2;
+      const my1 = (p0.y + p1.y) / 2;
+      const mx2 = (p1.x + p2.x) / 2;
+      const my2 = (p1.y + p2.y) / 2;
+      ctx.moveTo(mx1, my1);
+      ctx.quadraticCurveTo(p1.x, p1.y, mx2, my2);
+    } else {
+      const prev = pts[pts.length - 2] || pos;
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(pos.x, pos.y);
+    }
+    ctx.stroke();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, color, strokeSize]);
+
+  // ── Çizim bitince kaydet & üste ilet
+  const endDraw = useCallback((e) => {
+    if (e) e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    if (tool === 'arrow' && arrowStart.current) {
+      arrowStart.current = null;
+    }
+
+    if (isDrawing.current || tool === 'arrow') {
+      pageAnnotations.current[pageNumber] = canvas.toDataURL();
+      notifyChange();
+    }
+
     isDrawing.current = false;
-  };
+    lastPts.current   = [];
 
-  const colors = ['#ff4d4d', '#4da3ff', '#1db954', '#ffb84d', '#ffeb3b'];
+    const ctx = canvas.getContext('2d');
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, pageNumber, notifyChange]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.addEventListener('touchstart',  startDraw,    { passive: false });
+    canvas.addEventListener('touchmove',   continueDraw, { passive: false });
+    canvas.addEventListener('touchend',    endDraw,      { passive: false });
+    return () => {
+      canvas.removeEventListener('touchstart',  startDraw);
+      canvas.removeEventListener('touchmove',   continueDraw);
+      canvas.removeEventListener('touchend',    endDraw);
+    };
+  }, [startDraw, continueDraw, endDraw]);
+
+  const commitText = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !textInput.value.trim()) {
+      setTextInput(t => ({ ...t, visible: false }));
+      return;
+    }
+    saveSnapshot();
+    const ctx = canvas.getContext('2d');
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = color;
+    ctx.font        = `${strokeSize * 4 + 10}px 'Segoe UI', sans-serif`;
+    ctx.fillText(textInput.value, textInput.x, textInput.y);
+    pageAnnotations.current[pageNumber] = canvas.toDataURL();
+    notifyChange();
+    setTextInput(t => ({ ...t, visible: false, value: '' }));
+  }, [textInput, color, strokeSize, saveSnapshot, pageNumber, notifyChange]);
+
+  const onFileChange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setFile(f);
+    setFileName(f.name);
+    setPageNumber(1);
+    setPdfReady(false);
+    pageAnnotations.current = {};
+    historyRef.current      = {};
+    redoRef.current         = {};
+  };
 
   return (
-    <div className="flex flex-col h-full bg-[#191919] rounded-lg border border-[#3f3f3f] overflow-hidden">
-      
-      {/* Üst Araç Çubuğu */}
-      <div className="flex items-center justify-between bg-[#202020] p-4 border-b border-[#3f3f3f] flex-wrap gap-4">
-        
-        {/* Dosya Yükleme ve Sayfa Kontrolü */}
-        <div className="flex items-center gap-4">
-          <label className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors cursor-pointer flex items-center gap-2">
-            <i className="fa-solid fa-file-arrow-up"></i> PDF Yükle
-            <input type="file" accept="application/pdf" onChange={onFileChange} className="hidden" />
-          </label>
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: '#1a1a1a', borderRadius: 12, border: '1px solid #333',
+      overflow: 'hidden', fontFamily: "'Segoe UI', sans-serif",
+    }}>
+      {/* ── ARAÇ ÇUBUĞU ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 16px', background: '#242424',
+        borderBottom: '1px solid #333', flexShrink: 0,
+        flexWrap: 'wrap',
+      }}>
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+          background: '#1d4ed8', color: '#fff',
+          fontSize: 13, fontWeight: 600,
+          border: '1px solid #2563eb',
+          transition: 'background 0.15s',
+        }}>
+          📄 PDF Yükle
+          <input type="file" accept="application/pdf" onChange={onFileChange} style={{ display: 'none' }} />
+        </label>
 
-          {file && (
-            <div className="flex items-center gap-3 bg-[#121212] px-3 py-1.5 rounded-md border border-[#333]">
-              <button 
-                disabled={pageNumber <= 1} 
-                onClick={() => setPageNumber(p => p - 1)}
-                className="text-[#888] hover:text-white disabled:opacity-30"
-              >
-                <i className="fa-solid fa-chevron-left"></i>
-              </button>
-              <span className="text-sm font-medium text-[#D4D4D4]">
-                {pageNumber} / {numPages || '-'}
-              </span>
-              <button 
-                disabled={pageNumber >= numPages} 
-                onClick={() => setPageNumber(p => p + 1)}
-                className="text-[#888] hover:text-white disabled:opacity-30"
-              >
-                <i className="fa-solid fa-chevron-right"></i>
-              </button>
-            </div>
-          )}
+        {fileName && (
+          <span style={{
+            fontSize: 12, color: '#888', maxWidth: 180,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }} title={fileName}>
+            {fileName}
+          </span>
+        )}
+
+        {pdfReady && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: '#1a1a1a', border: '1px solid #333',
+            borderRadius: 8, padding: '4px 10px',
+          }}>
+            <NavBtn disabled={pageNumber <= 1} onClick={() => setPageNumber(p => p - 1)}>‹</NavBtn>
+            <span style={{ fontSize: 12, color: '#ccc', minWidth: 60, textAlign: 'center' }}>
+              {pageNumber} / {numPages}
+            </span>
+            <NavBtn disabled={pageNumber >= numPages} onClick={() => setPageNumber(p => p + 1)}>›</NavBtn>
+          </div>
+        )}
+
+        <div style={{ width: 1, height: 28, background: '#333', margin: '0 4px' }} />
+
+        {/* Araçlar */}
+        <div style={{
+          display: 'flex', gap: 4, background: '#1a1a1a',
+          border: '1px solid #2e2e2e', borderRadius: 10, padding: 4,
+        }}>
+          {Object.entries(TOOLS).map(([key, t]) => {
+            const active = tool === key;
+            const bg = active
+              ? key === 'eraser' ? '#6b7280' : key === 'highlight' ? '#f59e0b' : '#3b82f6'
+              : 'transparent';
+            return (
+              <button key={key} title={t.label} onClick={() => setTool(key)} style={{
+                width: 34, height: 34, border: 'none', borderRadius: 7,
+                background: bg, color: active ? '#fff' : '#888',
+                cursor: 'pointer', fontSize: 16, transition: 'all 0.15s',
+              }}>{t.icon}</button>
+            );
+          })}
         </div>
 
-        {/* Kalem, Fosforlu Kalem, Silgi ve Renkler */}
-        <div className="flex items-center gap-3 bg-[#121212] px-3 py-1.5 rounded-md border border-[#333]">
-          <button onClick={() => setTool('pen')} className={`p-1.5 rounded-md ${tool === 'pen' ? 'bg-[#3f3f3f] text-white' : 'text-[#888]'}`} title="Tükenmez Kalem"><i className="fa-solid fa-pen"></i></button>
-          <button onClick={() => setTool('highlighter')} className={`p-1.5 rounded-md ${tool === 'highlighter' ? 'bg-[#3f3f3f] text-white' : 'text-[#888]'}`} title="Fosforlu Kalem"><i className="fa-solid fa-highlighter"></i></button>
-          <button onClick={() => setTool('eraser')} className={`p-1.5 rounded-md ${tool === 'eraser' ? 'bg-[#3f3f3f] text-white' : 'text-[#888]'}`} title="Silgi"><i className="fa-solid fa-eraser"></i></button>
-          
-          <div className="w-px h-5 bg-[#3f3f3f] mx-1"></div>
-          
-          {colors.map(c => (
-            <button 
-              key={c} 
-              onClick={() => { setColor(c); if(tool==='eraser') setTool('pen'); }}
-              className={`w-5 h-5 rounded-full border-2 transition-transform ${color === c && tool !== 'eraser' ? 'scale-125 border-white' : 'border-transparent hover:scale-110'}`}
-              style={{ backgroundColor: c }}
+        <div style={{ width: 1, height: 28, background: '#333', margin: '0 4px' }} />
+
+        {/* Renkler */}
+        <div style={{
+          display: 'flex', gap: 6, alignItems: 'center',
+          background: '#1a1a1a', border: '1px solid #2e2e2e',
+          borderRadius: 10, padding: '6px 10px',
+        }}>
+          {COLORS.map(c => (
+            <button key={c} title={c}
+              onClick={() => { setColor(c); if (tool === 'eraser') setTool('pen'); }}
+              style={{
+                width: 20, height: 20, borderRadius: '50%', border: 'none',
+                background: c, cursor: 'pointer',
+                outline: color === c && tool !== 'eraser' ? '3px solid #fff' : '2px solid transparent',
+                outlineOffset: 2,
+                transform: color === c && tool !== 'eraser' ? 'scale(1.2)' : 'scale(1)',
+                transition: 'all 0.15s',
+              }}
             />
           ))}
         </div>
+
+        {/* Kalınlık */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: '#1a1a1a', border: '1px solid #2e2e2e',
+          borderRadius: 10, padding: '6px 12px',
+        }}>
+          <input type="range" min={1} max={20} value={strokeSize}
+            onChange={e => setSize(Number(e.target.value))}
+            style={{ width: 70, accentColor: '#3b82f6', cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 11, color: '#666', minWidth: 24 }}>{strokeSize}px</span>
+        </div>
+
+        {tool === 'highlight' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: '#1a1a1a', border: '1px solid #2e2e2e',
+            borderRadius: 10, padding: '6px 12px',
+          }}>
+            <span style={{ fontSize: 11, color: '#888' }}>Opaklık</span>
+            <input type="range" min={10} max={80} value={Math.round(hlOpacity * 100)}
+              onChange={e => setHlOpacity(Number(e.target.value) / 100)}
+              style={{ width: 60, accentColor: '#f59e0b', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 11, color: '#666' }}>{Math.round(hlOpacity * 100)}%</span>
+          </div>
+        )}
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <PdfActionBtn disabled={!canUndo} onClick={handleUndo} color="#3b82f6">↩ Geri</PdfActionBtn>
+          <PdfActionBtn disabled={!canRedo} onClick={handleRedo} color="#8b5cf6">↪ İleri</PdfActionBtn>
+          <PdfActionBtn onClick={handleClearPage} color="#ef4444">🗑 Sayfayı Temizle</PdfActionBtn>
+        </div>
       </div>
 
-      {/* PDF ve Çizim Alanı (Üst Üste Bindirme Tekniği) */}
-      <div className="flex-1 overflow-y-auto bg-[#121212] flex justify-center p-8 custom-scrollbar">
+      {/* ── PDF + CANVAS ALANI ── */}
+      <div style={{
+        flex: 1, overflowY: 'auto', background: '#111',
+        display: 'flex', justifyContent: 'center',
+        padding: '32px 0',
+      }}>
         {!file ? (
-          <div className="flex flex-col items-center justify-center text-[#555] h-full">
-            <i className="fa-solid fa-file-pdf text-7xl mb-4 opacity-30"></i>
-            <h2 className="text-xl font-medium mb-2">Henüz Bir PDF Yüklenmedi</h2>
-            <p className="text-sm">Yukarıdaki butondan bir PDF seçerek üzerine çizim yapmaya başlayın.</p>
+          <div style={{
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            color: '#555', userSelect: 'none',
+          }}>
+            <div style={{ fontSize: 72, marginBottom: 16, opacity: 0.25 }}>📄</div>
+            <h2 style={{ fontSize: 20, fontWeight: 500, marginBottom: 8, color: '#666' }}>
+              PDF Yüklenmedi
+            </h2>
+            <p style={{ fontSize: 13, color: '#444', textAlign: 'center', maxWidth: 280 }}>
+              Yukarıdaki "PDF Yükle" butonuna tıklayarak bir dosya seçin ve üzerine çizim yapmaya başlayın.
+            </p>
           </div>
         ) : (
-          <div className="relative shadow-2xl bg-white" style={{ width: '800px' }}>
-            {/* 1. KATMAN: PDF'in Kendisi */}
-            <Document file={file} onLoadSuccess={onDocumentLoadSuccess} className="absolute top-0 left-0">
-              <Page pageNumber={pageNumber} width={800} renderTextLayer={false} renderAnnotationLayer={false} />
+          <div style={{
+            position: 'relative', width: PDF_WIDTH,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+            borderRadius: 4, overflow: 'hidden',
+          }}>
+            <Document
+              file={file}
+              onLoadSuccess={onDocumentLoadSuccess}
+              loading={
+                <div style={{
+                  width: PDF_WIDTH, height: 500, background: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#999', fontSize: 14,
+                }}>PDF yükleniyor…</div>
+              }
+            >
+              <Page
+                pageNumber={pageNumber}
+                width={PDF_WIDTH}
+                onRenderSuccess={onPageRenderSuccess}
+                renderTextLayer={true}
+                renderAnnotationLayer={false}
+              />
             </Document>
 
-            {/* 2. KATMAN: Çizim Tahtası (Şeffaf) */}
-            <div className="absolute top-0 left-0 z-10 cursor-crosshair">
-              <Stage
-                width={800}
-                height={1131} // A4 Formatı tahmini yüksekliği (800 x 1.414)
-                onMouseDown={handleMouseDown}
-                onMousemove={handleMouseMove}
-                onMouseup={handleMouseUp}
-              >
-                <Layer>
-                  {lines.filter(line => line.page === pageNumber).map((line, i) => (
-                    <Line
-                      key={i}
-                      points={line.points}
-                      stroke={line.tool === 'eraser' ? '#ffffff' : line.color}
-                      strokeWidth={line.tool === 'highlighter' ? 20 : line.strokeWidth}
-                      opacity={line.tool === 'highlighter' ? 0.4 : 1} // Fosforlu kalem için şeffaflık
-                      tension={0.5}
-                      lineCap="round"
-                      lineJoin="round"
-                      globalCompositeOperation={line.tool === 'eraser' ? 'destination-out' : 'source-over'}
-                    />
-                  ))}
-                </Layer>
-              </Stage>
+            <canvas
+              ref={canvasRef}
+              style={{
+                position: 'absolute', top: 0, left: 0,
+                touchAction: 'none',
+                cursor: tool === 'text' ? 'text' : 'crosshair',
+                zIndex: 10,
+              }}
+              width={PDF_WIDTH}
+              height={pageHeight}
+              onMouseDown={startDraw}
+              onMouseMove={continueDraw}
+              onMouseUp={endDraw}
+              onMouseLeave={endDraw}
+            />
+
+            {textInput.visible && (
+              <input
+                autoFocus
+                value={textInput.value}
+                onChange={e => setTextInput(t => ({ ...t, value: e.target.value }))}
+                onBlur={commitText}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') commitText();
+                  if (e.key === 'Escape') setTextInput(t => ({ ...t, visible: false }));
+                }}
+                style={{
+                  position: 'absolute',
+                  left: textInput.x, top: textInput.y - 24,
+                  zIndex: 20, background: 'rgba(0,0,0,0.75)',
+                  border: `1px solid ${color}`,
+                  color, borderRadius: 4, padding: '2px 8px',
+                  fontSize: strokeSize * 4 + 10,
+                  outline: 'none', minWidth: 80,
+                }}
+                placeholder="Metin gir…"
+              />
+            )}
+
+            <div style={{
+              position: 'absolute', bottom: 12, left: 12, zIndex: 15,
+              background: 'rgba(0,0,0,0.55)', color: '#aaa',
+              fontSize: 11, padding: '3px 10px', borderRadius: 20,
+              backdropFilter: 'blur(4px)', border: '1px solid #333',
+              pointerEvents: 'none',
+            }}>
+              {TOOLS[tool].icon} {TOOLS[tool].label} · {strokeSize}px
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Küçük yardımcı bileşenler ───────────────────────────────
+function NavBtn({ children, onClick, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      width: 24, height: 24, border: 'none', borderRadius: 6,
+      background: 'transparent', color: disabled ? '#444' : '#aaa',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      fontSize: 18, lineHeight: 1, display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      transition: 'color 0.15s',
+    }}>{children}</button>
+  );
+}
+
+function PdfActionBtn({ children, onClick, color, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      padding: '5px 10px', border: 'none', borderRadius: 8,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      fontSize: 12, fontWeight: 600,
+      background: disabled ? '#1e1e1e' : color + '22',
+      color: disabled ? '#444' : color,
+      border: `1px solid ${disabled ? '#2a2a2a' : color + '44'}`,
+      transition: 'all 0.15s', opacity: disabled ? 0.4 : 1,
+    }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = color; e.currentTarget.style.color = '#fff'; }}}
+      onMouseLeave={e => { if (!disabled) { e.currentTarget.style.background = color + '22'; e.currentTarget.style.color = color; }}}
+    >{children}</button>
   );
 }
