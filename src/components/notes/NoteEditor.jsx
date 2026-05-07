@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import DrawMode from '../../pages/Notes/DrawMode';
+import PdfMode from '../../pages/Notes/PdfMode';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -660,6 +662,7 @@ export default function NoteEditor({ note, onSave, onClose }) {
   const [isFavorited, setIsFavorited] = useState(note?.favorite || note?.favorited || false);
   const [autosaveStatus, setAutosaveStatus] = useState('idle');
   const [showDrawing, setShowDrawing] = useState(false);
+  const [editorMode, setEditorMode] = useState('text'); // 'text' | 'draw' | 'pdf'
   const [attachments, setAttachments] = useState(note?.attachments || []);
   const [fontSize, setFontSize] = useState('16');
   const [textColor, setTextColor] = useState('#d0d0da');
@@ -794,6 +797,13 @@ export default function NoteEditor({ note, onSave, onClose }) {
               <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
             </svg>
           </ToolbarBtn>
+          <div style={{ display: 'flex', gap: 4, background: '#1a1a1a', borderRadius: 8, padding: 4, border: '1px solid #2e2e2e' }}>
+  {[{ key: 'text', label: '⌨️ Metin' }, { key: 'draw', label: '✏️ Çizim' }, { key: 'pdf', label: '📄 PDF' }].map(({ key, label }) => (
+    <button key={key} onClick={() => setEditorMode(key)} style={{ padding: '5px 12px', border: 'none', borderRadius: 6, background: editorMode === key ? '#6c6af6' : 'transparent', color: editorMode === key ? '#fff' : '#666', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
+      {label}
+    </button>
+  ))}
+</div>
           <ToolbarBtn onClick={() => setShowDrawing(p => !p)} active={showDrawing} title="Çizim araçları">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -827,97 +837,102 @@ export default function NoteEditor({ note, onSave, onClose }) {
 
       <DrawingToolbar visible={showDrawing} onClose={() => setShowDrawing(false)} />
 
-      {/* ── Scrollable Editor Body ───────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2a2a36] scrollbar-thin scrollbar-thumb-[#2a2a36]">
-        <div className="mx-auto w-full max-w-3xl px-8 py-8 md:px-12">
-          
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-widest text-[#333344] select-none">
-            {today}
-          </p>
+      {editorMode === 'draw' && <div className="flex-1 overflow-hidden"><DrawMode /></div>}
+      {editorMode === 'pdf'  && <div className="flex-1 overflow-hidden"><PdfMode /></div>}
+      {editorMode === 'text' && (
+        <>
+          {/* ── Scrollable Editor Body ───────────────────────────────────────────── */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2a2a36] scrollbar-thin scrollbar-thumb-[#2a2a36]">
+            <div className="mx-auto w-full max-w-3xl px-8 py-8 md:px-12">
+              
+              <p className="mb-4 text-[11px] font-medium uppercase tracking-widest text-[#333344] select-none">
+                {today}
+              </p>
 
-          <input
-            ref={titleRef}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="İsimsiz Not"
-            className="w-full bg-transparent outline-none text-[28px] font-bold tracking-[-0.03em] text-white placeholder:text-[#2e2e3e] mb-4 leading-tight transition-colors duration-150"
-            style={{ caretColor: '#6c6af6' }}
-          />
+              <input
+                ref={titleRef}
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="İsimsiz Not"
+                className="w-full bg-transparent outline-none text-[28px] font-bold tracking-[-0.03em] text-white placeholder:text-[#2e2e3e] mb-4 leading-tight transition-colors duration-150"
+                style={{ caretColor: '#6c6af6' }}
+              />
 
-          <div className="mb-6 flex items-center gap-2">
-            <span className="flex-shrink-0 text-[#333344]">#</span>
-            <TagInput tags={tags} onChange={setTags} />
-          </div>
+              <div className="mb-6 flex items-center gap-2">
+                <span className="flex-shrink-0 text-[#333344]">#</span>
+                <TagInput tags={tags} onChange={setTags} />
+              </div>
 
-          <div className="mb-6 h-px bg-[#1a1a24]" />
+              <div className="mb-6 h-px bg-[#1a1a24]" />
 
-          {/* BÜYÜK DÜZELTME: dangerouslySetInnerHTML TAMAMEN KALDIRILDI! */}
-          <div
-            ref={editorRef}
-            contentEditable="true"
-            suppressContentEditableWarning
-            onInput={e => setContent(e.currentTarget.innerHTML)}
-            data-placeholder="Yazmaya başla..."
-            className={[
-              'min-h-[360px] outline-none',
-              'text-[16px] leading-[1.75] text-[#c0c0cc]',
-              '[&:empty]:before:content-[attr(data-placeholder)]',
-              '[&:empty]:before:text-[#2e2e3e]',
-              '[&:empty]:before:pointer-events-none',
-              '[&_h1]:text-[26px] [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:tracking-tight',
-              '[&_h2]:text-[20px] [&_h2]:font-semibold [&_h2]:text-[#d8d8e4] [&_h2]:mb-2.5 [&_h2]:mt-5',
-              '[&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[#c0c0cc] [&_h3]:mb-2 [&_h3]:mt-4',
-              '[&_p]:mb-3',
-              '[&_blockquote]:border-l-2 [&_blockquote]:border-[#6c6af6]/50 [&_blockquote]:pl-4 [&_blockquote]:text-[#888898] [&_blockquote]:italic [&_blockquote]:my-4',
-              '[&_pre]:bg-[#0d0d16] [&_pre]:border [&_pre]:border-[#2a2a38] [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:text-[13px] [&_pre]:font-mono [&_pre]:text-[#9d9cf8] [&_pre]:my-4 [&_pre]:overflow-x-auto',
-              '[&_code]:bg-[#1a1a28] [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_code]:font-mono [&_code]:text-[#9d9cf8]',
-              '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1',
-              '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1',
-              '[&_li]:leading-relaxed',
-              '[&_a]:text-[#6c6af6] [&_a]:underline [&_a]:underline-offset-2',
-              '[&_strong]:text-white [&_strong]:font-semibold',
-              'focus:outline-none',
-            ].join(' ')}
-            style={{
-              fontSize: `${fontSize}px`,
-              color: textColor,
-              caretColor: '#6c6af6',
-            }}
-          />
+              {/* BÜYÜK DÜZELTME: dangerouslySetInnerHTML TAMAMEN KALDIRILDI! */}
+              <div
+                ref={editorRef}
+                contentEditable="true"
+                suppressContentEditableWarning
+                onInput={e => setContent(e.currentTarget.innerHTML)}
+                data-placeholder="Yazmaya başla..."
+                className={[
+                  'min-h-[360px] outline-none',
+                  'text-[16px] leading-[1.75] text-[#c0c0cc]',
+                  '[&:empty]:before:content-[attr(data-placeholder)]',
+                  '[&:empty]:before:text-[#2e2e3e]',
+                  '[&:empty]:before:pointer-events-none',
+                  '[&_h1]:text-[26px] [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:tracking-tight',
+                  '[&_h2]:text-[20px] [&_h2]:font-semibold [&_h2]:text-[#d8d8e4] [&_h2]:mb-2.5 [&_h2]:mt-5',
+                  '[&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[#c0c0cc] [&_h3]:mb-2 [&_h3]:mt-4',
+                  '[&_p]:mb-3',
+                  '[&_blockquote]:border-l-2 [&_blockquote]:border-[#6c6af6]/50 [&_blockquote]:pl-4 [&_blockquote]:text-[#888898] [&_blockquote]:italic [&_blockquote]:my-4',
+                  '[&_pre]:bg-[#0d0d16] [&_pre]:border [&_pre]:border-[#2a2a38] [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:text-[13px] [&_pre]:font-mono [&_pre]:text-[#9d9cf8] [&_pre]:my-4 [&_pre]:overflow-x-auto',
+                  '[&_code]:bg-[#1a1a28] [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_code]:font-mono [&_code]:text-[#9d9cf8]',
+                  '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1',
+                  '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1',
+                  '[&_li]:leading-relaxed',
+                  '[&_a]:text-[#6c6af6] [&_a]:underline [&_a]:underline-offset-2',
+                  '[&_strong]:text-white [&_strong]:font-semibold',
+                  'focus:outline-none',
+                ].join(' ')}
+                style={{
+                  fontSize: `${fontSize}px`,
+                  color: textColor,
+                  caretColor: '#6c6af6',
+                }}
+              />
 
-          {attachments.length > 0 && (
-            <div className="mt-8">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-px flex-1 bg-[#1a1a24]" />
-                <span className="text-[11px] font-medium uppercase tracking-widest text-[#333344] px-2">
-                  Ekler ({attachments.length})
+              {attachments.length > 0 && (
+                <div className="mt-8">
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="h-px flex-1 bg-[#1a1a24]" />
+                    <span className="text-[11px] font-medium uppercase tracking-widest text-[#333344] px-2">
+                      Ekler ({attachments.length})
+                    </span>
+                    <div className="h-px flex-1 bg-[#1a1a24]" />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {attachments.map(a => (
+                      <AttachmentItem key={a.id} attachment={a} onRemove={removeAttachment} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e2c] py-6 cursor-pointer transition-all duration-150 hover:border-[#6c6af6]/30 hover:bg-[#6c6af6]/[0.02] group"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1a1a24] text-[#3a3a50] transition-colors group-hover:bg-[#6c6af6]/10 group-hover:text-[#6c6af6]">
+                  +
                 </span>
-                <div className="h-px flex-1 bg-[#1a1a24]" />
+                <p className="mt-2 text-[12px] text-[#333344] group-hover:text-[#555568] transition-colors">
+                  Dosya eklemek için tıkla veya sürükle
+                </p>
+                <p className="text-[11px] text-[#252532] mt-0.5">PNG, JPG, PDF — maks. 20 MB</p>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {attachments.map(a => (
-                  <AttachmentItem key={a.id} attachment={a} onRemove={removeAttachment} />
-                ))}
-              </div>
+              <div className="h-16" />
             </div>
-          )}
-
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e2c] py-6 cursor-pointer transition-all duration-150 hover:border-[#6c6af6]/30 hover:bg-[#6c6af6]/[0.02] group"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1a1a24] text-[#3a3a50] transition-colors group-hover:bg-[#6c6af6]/10 group-hover:text-[#6c6af6]">
-              +
-            </span>
-            <p className="mt-2 text-[12px] text-[#333344] group-hover:text-[#555568] transition-colors">
-              Dosya eklemek için tıkla veya sürükle
-            </p>
-            <p className="text-[11px] text-[#252532] mt-0.5">PNG, JPG, PDF — maks. 20 MB</p>
           </div>
-          <div className="h-16" />
-        </div>
-      </div>
-
+        </>
+      )}
       {/* ── Status Bar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-shrink-0 items-center justify-between border-t border-[#1a1a24] bg-[#0d0d16] px-6 py-1.5">
         <div className="flex items-center gap-4 text-[11px] text-[#333344] select-none">

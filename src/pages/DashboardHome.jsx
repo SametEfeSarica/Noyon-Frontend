@@ -191,41 +191,31 @@ function NoteCard({ note }) {
     </div>
   );
 }
+ // DashboardHome.jsx içindeki TaskRow bileşenini şu hale getir:
 
-function TaskRow({ task, onToggle }) {
+function TaskRow({ task }) {
   const [hov, setHov] = useState(false);
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 cursor-pointer group"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 cursor-default group"
       style={{ background: hov ? "#161622" : "transparent" }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}>
-      {/* Checkbox */}
-      <button
-        onClick={e => { e.stopPropagation(); onToggle(task.id, task.status); }}
-        className="w-4.5 h-4.5 rounded-md flex-shrink-0 flex items-center justify-center transition-all duration-150"
-        style={{
-          width: 18, height: 18,
-          background: task.done ? "#34d399" : "transparent",
-          border: `1.5px solid ${task.done ? "#34d399" : "#3f3f3f"}`,
-          boxShadow: task.done ? "0 0 8px #34d39944" : "none",
-        }}>
-        {task.done && <IC d={P.check} size={10} className="text-[#09090b]" strokeWidth={3} />}
-      </button>
-      <span className="flex-1 text-sm truncate transition-all duration-150"
-        style={{ color: task.done ? "#4b5563" : "#d1d5db",
-          textDecoration: task.done ? "line-through" : "none" }}>
+      
+      {/* Tik kutusunu tamamen sildik, sadece küçük bir nokta veya ikon bırakabiliriz */}
+      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" 
+           style={{ background: priorityColors[task.priority] || priorityColors.med }} />
+
+      <span className="flex-1 text-sm truncate text-[#d1d5db]">
         {task.title}
       </span>
+      
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className="text-[10px] text-gray-500">{task.due}</span>
-        <div className="w-1.5 h-1.5 rounded-full"
-          style={{ background: priorityColors[task.priority] || priorityColors.med }} />
       </div>
     </div>
   );
 }
-
 function BannerPicker({ current, onChange, onClose }) {
   return (
     <div className="absolute top-12 right-4 z-20 rounded-xl p-3 shadow-2xl"
@@ -266,37 +256,40 @@ export default function DashboardHome() {
 
   // Fetch Dashboard Data
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [sumRes, notesRes, tasksRes] = await Promise.allSettled([
-          api.get('/api/dashboard/summary'),
-          api.get('/api/notes', { params: { size: 4, sort: 'updatedAt,desc' } }),
-          api.get('/api/tasks')
-        ]);
+  const fetchDashboardData = async () => {
+    try {
+      const res = await api.get('/api/dashboard/summary');
+      const data = res.data.data || res.data;
+      setSummary(data);
+      setRecentTasks(data.recentTasks || []);
+      setRecentNotes(data.recentNotes || []);
+      // Artık notları ve kitapları tek bir objeden (data) alabilirsin
+    } catch (error) {
+      console.error("Dashboard verileri alınamadı:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchDashboardData();
+}, []);
 
-        if (sumRes.status === 'fulfilled') {
-          setSummary(sumRes.value.data.data || sumRes.value.data);
-        }
-        
-        if (notesRes.status === 'fulfilled') {
-          const fetchedNotes = notesRes.value.data.data || notesRes.value.data;
-          // Sadece son 4 notu al
-          setRecentNotes(fetchedNotes.slice(0, 4));
-        }
-
-        if (tasksRes.status === 'fulfilled') {
-          const fetchedTasks = tasksRes.value.data.data || tasksRes.value.data;
-          // Sadece son 5 görevi al
-          setRecentTasks(fetchedTasks.slice(0, 5));
-        }
-      } catch (error) {
-        console.error("Dashboard verileri alınamadı:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
-  }, []);
+// KİTAPLAR İÇİN UI KISMI (Boş olan yere ekle):
+<section>
+  <div className="flex items-center justify-between mb-3">
+    <div className="flex items-center gap-2">
+      <IC d={P.template} size={14} className="text-blue-400" />
+      <h2 className="text-sm font-semibold text-white">Son Eklenen Kitaplar</h2>
+    </div>
+  </div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {summary?.recentBooks?.map(book => (
+      <div key={book.id} className="p-3 rounded-xl bg-[#111119] border border-[#1e1e2c]">
+        <p className="text-sm font-medium text-white">{book.title}</p>
+        <p className="text-xs text-gray-500">{book.author}</p>
+      </div>
+    ))}
+  </div>
+</section>
 
   const toggleTask = async (id, currentStatus) => {
     const newStatus = currentStatus === 'DONE' ? 'TODO' : 'DONE';
@@ -514,15 +507,13 @@ export default function DashboardHome() {
                     </div>
                     <div className="py-1.5 px-1">
                       {recentTasks.map(t => (
-                        <TaskRow key={t.id} task={{
-                          id: t.id,
-                          title: t.title,
-                          status: t.status,
-                          done: t.status === 'DONE',
-                          priority: t.priority?.toLowerCase() || 'med',
-                          due: t.dueDate || 'Tarih Yok'
-                        }} onToggle={toggleTask} />
-                      ))}
+  <TaskRow key={t.id} task={{
+    id: t.id,
+    title: t.title,
+    priority: t.priority?.toLowerCase() || 'med',
+    due: t.dueDate || 'Tarih Yok'
+  }} />
+))}
                     </div>
                   </div>
                 ) : (

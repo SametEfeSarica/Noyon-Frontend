@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import api from '../api/axiosInstance'; // Kendi axios dosyanın yolu neyse onu yaz
 
 // ── Icons (inline SVG helpers) ────────────────────────────────────────────────
 const Icon = ({ d, size = 16, className = "" }) => (
@@ -238,35 +239,31 @@ function AddBookModal({ categories, onClose, onAdd }) {
   const handleSubmit = () => {
     if (!form.title.trim() || !form.author.trim() || !form.pages) return;
 
+    // Sayıları güvene alıyoruz (Boş gelseler bile sayı olmalarını garantiliyoruz)
     const totalP = parseInt(form.pages) || 1;
     const currP  = parseInt(form.currentPage) || 0;
     const progress = Math.min(100, Math.max(0, Math.round((currP / totalP) * 100)));
-    const cat = categories.find(c => c.id === form.category);
+    const pubYear = parseInt(form.year) || new Date().getFullYear();
 
-    const newBook = {
-      id: "book_" + Date.now(),
-      title: form.title,
-      author: form.author,
-      category: form.category,
-      pages: totalP,
-      progress,
-      cover: form.cover.substring(0, 2).toUpperCase() || form.title.substring(0, 2).toUpperCase(),
-      description: form.description,
-      year: parseInt(form.year) || new Date().getFullYear(),
-      color: form.theme.color,
-      accent: form.theme.accent,
-      spine: form.theme.spine,
-      tags: [cat?.label || form.category],
-      rating: 0,
-      isFavorite: false,
-    };
-
-    onAdd(newBook);
+    // Efe'nin backend'ine gidecek KUSURSUZ VE EKSİKSİZ paket:
+    const newBookPayload = {
+  title: form.title,
+  author: form.author,
+  category: form.category,
+  description: form.description,
+  progress,
+  pages: totalP,
+  year: pubYear,
+  rating: 0,
+  isFavorite: false,   // ← "favorite" değil "isFavorite"
+};
+    onAdd(newBookPayload);
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+// ... kodun devamı aynı
       style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       
@@ -624,6 +621,20 @@ function ShelfRow({ books, favorites, onToggleFavorite }) {
   );
 }
 
+// ── Backend Verisini Frontend Görseline Çevirici ──
+const mapBackendToFrontendBook = (b) => {
+  const theme = BOOK_THEMES[b.id % BOOK_THEMES.length] || BOOK_THEMES[0];
+  return {
+    ...b,
+    isFavorite: b.favorite, // Backend "favorite" diyor, sen "isFavorite"
+    cover: b.title ? b.title.substring(0, 2).toUpperCase() : "BK",
+    color: theme.color,
+    accent: theme.accent,
+    spine: theme.spine,
+    tags: [b.category || "Genel"]
+  };
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Library() {
   const [books,          setBooks]          = useState([]);
@@ -638,41 +649,62 @@ export default function Library() {
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
   // ── İlk yükleme: localStorage'dan oku ──────────────────────────────────────
+  // ── İlk yükleme: Gerçek veritabanından oku ──
   useEffect(() => {
-    const storedBooks = loadBooks();
-    const storedCats  = loadCategories();
-    setBooks(storedBooks);
-    setCategories(storedCats);
-    const favIds = new Set(storedBooks.filter(b => b.isFavorite).map(b => b.id));
-    setFavorites(favIds);
-    setLoading(false);
+    const fetchBooks = async () => {
+      try {
+        const res = await api.get('/api/library');
+        const data = res.data.data || res.data;
+        
+        const mappedBooks = data.map(mapBackendToFrontendBook);
+        setBooks(mappedBooks);
+        
+        const favIds = new Set(mappedBooks.filter(b => b.isFavorite).map(b => b.id));
+        setFavorites(favIds);
+      } catch (err) {
+        console.error("Kitaplar yüklenemedi:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBooks();
+    setCategories(loadCategories()); // Kategoriler şimdilik local'de kalabilir
   }, []);
 
   // ── Kitap ekle ──────────────────────────────────────────────────────────────
-  const handleAddBook = useCallback((newBook) => {
-    setBooks(prev => {
-      const updated = [...prev, newBook];
-      saveBooks(updated);
-      return updated;
-    });
-  }, []);
+  // ── Kitap ekle: Backend'e gönder ──
+  const handleAddBook = async (newBookPayload) => {
+    try {
+      const res = await api.post('/api/library', newBookPayload);
+      const savedBook = res.data.data || res.data;
+      
+      const mappedNewBook = mapBackendToFrontendBook(savedBook);
+      setBooks(prev => [...prev, mappedNewBook]);
+      setIsAddModalOpen(false);
+    } catch (err) {
+      console.error("Kitap eklenemedi:", err);
+    }
+  };
 
   // ── Favori toggle ────────────────────────────────────────────────────────────
-  const toggleFavorite = useCallback((id) => {
+  const toggleFavorite = async (id) => {
     setFavorites(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
-
-      // localStorage'daki kitabın isFavorite alanını da güncelle
-      const storedBooks = loadBooks();
-      const updated = storedBooks.map(b =>
-        b.id === id ? { ...b, isFavorite: next.has(id) } : b
-      );
-      saveBooks(updated);
-
       return next;
     });
-  }, []);
+
+    setBooks(prev => prev.map(b => 
+      b.id === id ? { ...b, isFavorite: !b.isFavorite } : b
+    ));
+
+    try {
+      await api.patch(`/api/library/${id}/favorite`); // Backend'i de güncelle
+    } catch (err) {
+      console.error("Favori kaydedilemedi:", err);
+    }
+  };
 
   // ── Kategori kaydet ──────────────────────────────────────────────────────────
   const handleSaveCategories = useCallback((newCats) => {

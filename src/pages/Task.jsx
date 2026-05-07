@@ -43,11 +43,6 @@ const IconCheck = ({ size = 13 }) => (
     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
   </svg>
 );
-const IconFolder = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-  </svg>
-);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PRIORITIES = [
@@ -66,6 +61,27 @@ const AVATAR_COLORS = [
 ];
 
 const WORKSPACE_COLORS = ['#6c6af6','#22c55e','#f97316','#ef4444','#eab308','#06b6d4','#ec4899','#8b5cf6'];
+
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+const LS_BOARD_KEY = 'taskboard_board_by_workspace';
+
+const loadBoardCache = () => {
+  try {
+    const saved = localStorage.getItem(LS_BOARD_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveBoardCache = (boardByWorkspace) => {
+  try {
+    localStorage.setItem(LS_BOARD_KEY, JSON.stringify(boardByWorkspace));
+  } catch (e) {
+    // localStorage dolu olabilir, sessizce geç
+    console.warn('localStorage board cache yazılamadı:', e);
+  }
+};
 
 // ─── Utility Helpers ──────────────────────────────────────────────────────────
 const getPriority = (id) => PRIORITIES.find(p => p.id === id) || PRIORITIES[2];
@@ -852,39 +868,43 @@ export default function Tasks() {
     } catch {}
     return 1;
   });
-  const [editingWorkspace, setEditingWorkspace] = useState(null); // null | 'new' | workspace obj
+  const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
-  // Persist workspaces
-  useEffect(() => {
-    try {
-      localStorage.setItem('taskboard_workspaces', JSON.stringify(workspaces));
-    } catch {}
-  }, [workspaces]);
-  useEffect(() => {
-    try {
-      localStorage.setItem('taskboard_active_workspace', String(activeWorkspaceId));
-    } catch {}
-  }, [activeWorkspaceId]);
+  // ── Board state — localStorage'dan başlat ────────────────────────────────────
+  // FIX 1: boardByWorkspace artık localStorage'dan yükleniyor.
+  // Bu sayede çıkış/yenileme sonrası da veriler korunuyor.
+  const [boardByWorkspace, setBoardByWorkspace] = useState(() => loadBoardCache());
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState({});
+  const [errorWorkspaces, setErrorWorkspaces]   = useState({});
 
-  // ── Board state ──────────────────────────────────────────────────────────────
-const [boardByWorkspace, setBoardByWorkspace] = useState({});   // { [workspaceId]: { columns, members } }
-const [loadingWorkspaces, setLoadingWorkspaces] = useState({}); // { [workspaceId]: bool }
-const [errorWorkspaces, setErrorWorkspaces] = useState({});     // { [workspaceId]: string|null }
- 
-// Aktif workspace'in verisi (computed):
-const columns = boardByWorkspace[activeWorkspaceId]?.columns || [];
-const members = boardByWorkspace[activeWorkspaceId]?.members || [];
-const loading  = !!loadingWorkspaces[activeWorkspaceId];
-const error    = errorWorkspaces[activeWorkspaceId] || null;
+  const columns = boardByWorkspace[activeWorkspaceId]?.columns || [];
+  const members = boardByWorkspace[activeWorkspaceId]?.members || [];
+  const loading  = !!loadingWorkspaces[activeWorkspaceId];
+  const error    = errorWorkspaces[activeWorkspaceId] || null;
+
   const [draggingCardId, setDraggingCardId] = useState(null);
-  const [editingCard, setEditingCard] = useState(null);
-  const [editingColumn, setEditingColumn] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [editingCard, setEditingCard]       = useState(null);
+  const [editingColumn, setEditingColumn]   = useState(null);
+  const [searchQuery, setSearchQuery]       = useState('');
   const [filterPriority, setFilterPriority] = useState('all');
   const boardRef = useRef(null);
 
-  // Keyframe animasyonları
+  // ── Persist workspaces ───────────────────────────────────────────────────────
+  useEffect(() => {
+    try { localStorage.setItem('taskboard_workspaces', JSON.stringify(workspaces)); } catch {}
+  }, [workspaces]);
+
+  useEffect(() => {
+    try { localStorage.setItem('taskboard_active_workspace', String(activeWorkspaceId)); } catch {}
+  }, [activeWorkspaceId]);
+
+  // FIX 2: boardByWorkspace her değiştiğinde localStorage'a yazılıyor.
+  useEffect(() => {
+    saveBoardCache(boardByWorkspace);
+  }, [boardByWorkspace]);
+
+  // ── Animasyonlar ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const id = 'taskboard-animations';
     if (document.getElementById(id)) return;
@@ -899,65 +919,81 @@ const error    = errorWorkspaces[activeWorkspaceId] || null;
     document.head.appendChild(style);
   }, []);
 
-  // ── Board fetch (workspace değişince yeniden fetch) ─────────────────────────
-useEffect(() => {
-  // Zaten yüklenmiş workspace'i tekrar fetch etme
-  if (boardByWorkspace[activeWorkspaceId]) return;
- 
-  const fetchBoard = async () => {
-    setLoadingWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: true }));
-    setErrorWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: null }));
-    try {
-      const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
-      const data = res.data?.data || res.data;
-      setBoardByWorkspace(prev => ({
-        ...prev,
-        [activeWorkspaceId]: {
-          columns: data.columns || [],
-          members: data.members || [],
-        },
-      }));
-    } catch (err) {
-      setErrorWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: 'Pano yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.' }));
-      console.error('Board fetch error:', err);
-    } finally {
-      setLoadingWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: false }));
-    }
-  };
-  fetchBoard();
-}, [activeWorkspaceId]); // boardByWorkspace dependency'e ekleme — sonsuz döngü olur
+  // ── Board fetch ──────────────────────────────────────────────────────────────
+  // FIX 3: localStorage'da veri varsa fetch etme (zaten cache'de).
+  // Kullanıcı "yenile" isterse force-fetch yapılabilir (burada otomatik değil).
+  useEffect(() => {
+    if (boardByWorkspace[activeWorkspaceId]) return; // Cache'de varsa atla
+
+    const fetchBoard = async () => {
+      setLoadingWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: true }));
+      setErrorWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: null }));
+      try {
+        const res = await api.get(`/api/board?workspaceId=${activeWorkspaceId}`);
+        const data = res.data?.data || res.data;
+        setBoardByWorkspace(prev => ({
+          ...prev,
+          [activeWorkspaceId]: {
+            columns: data.columns || [],
+            members: data.members || [],
+          },
+        }));
+      } catch (err) {
+        setErrorWorkspaces(prev => ({
+          ...prev,
+          [activeWorkspaceId]: 'Pano yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.',
+        }));
+        console.error('Board fetch error:', err);
+      } finally {
+        setLoadingWorkspaces(prev => ({ ...prev, [activeWorkspaceId]: false }));
+      }
+    };
+    fetchBoard();
+  }, [activeWorkspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── setColumns helper ────────────────────────────────────────────────────────
+  const setColumns = useCallback((updater) => {
+    setBoardByWorkspace(prev => {
+      const current = prev[activeWorkspaceId] || { columns: [], members: [] };
+      const nextColumns = typeof updater === 'function' ? updater(current.columns) : updater;
+      return { ...prev, [activeWorkspaceId]: { ...current, columns: nextColumns } };
+    });
+  }, [activeWorkspaceId]);
 
   // ── Workspace işlemleri ──────────────────────────────────────────────────────
   const handleAddWorkspace = useCallback((data) => {
     const newWs = { id: Date.now(), name: data.name, color: data.color };
     setWorkspaces(prev => [...prev, newWs]);
     setActiveWorkspaceId(newWs.id);
+    // Yeni workspace için boş board cache'i oluştur
+    // (API fetch'i tetiklenecek çünkü boardByWorkspace'de bu id yok)
   }, []);
 
   const handleEditWorkspace = useCallback((data) => {
-    setWorkspaces(prev => prev.map(ws => ws.id === editingWorkspace.id ? { ...ws, ...data } : ws));
+    setWorkspaces(prev => prev.map(ws =>
+      ws.id === editingWorkspace.id ? { ...ws, ...data } : ws
+    ));
   }, [editingWorkspace]);
 
-const handleDeleteWorkspace = useCallback((wsId) => {
-  setWorkspaces(prev => {
-    const next = prev.filter(ws => ws.id !== wsId);
-    if (next.length === 0) return prev;
-    return next;
-  });
-  // Silinen workspace'in board cache'ini temizle
-  setBoardByWorkspace(prev => {
-    const next = { ...prev };
-    delete next[wsId];
-    return next;
-  });
-  setActiveWorkspaceId(prev => {
-    if (prev === wsId) {
-      const remaining = workspaces.filter(ws => ws.id !== wsId);
-      return remaining[0]?.id || null;
-    }
-    return prev;
-  });
-}, [workspaces]);
+  const handleDeleteWorkspace = useCallback((wsId) => {
+    setWorkspaces(prev => {
+      const next = prev.filter(ws => ws.id !== wsId);
+      if (next.length === 0) return prev;
+      return next;
+    });
+    setBoardByWorkspace(prev => {
+      const next = { ...prev };
+      delete next[wsId];
+      return next;
+    });
+    setActiveWorkspaceId(prev => {
+      if (prev === wsId) {
+        const remaining = workspaces.filter(ws => ws.id !== wsId);
+        return remaining[0]?.id || null;
+      }
+      return prev;
+    });
+  }, [workspaces]);
 
   const handleSaveWorkspace = useCallback((data) => {
     if (editingWorkspace === 'new') {
@@ -967,17 +1003,8 @@ const handleDeleteWorkspace = useCallback((wsId) => {
     }
   }, [editingWorkspace, handleAddWorkspace, handleEditWorkspace]);
 
-
-const setColumns = useCallback((updater) => {
-    setBoardByWorkspace(prev => {
-      const current = prev[activeWorkspaceId] || { columns: [], members: [] };
-      const nextColumns = typeof updater === 'function' ? updater(current.columns) : updater;
-      return { ...prev, [activeWorkspaceId]: { ...current, columns: nextColumns } };
-    });
-  }, [activeWorkspaceId]);
-
   // ── Kart Ekleme ─────────────────────────────────────────────────────────────
-  // BUGFIX: hata durumundaki filter callback düzeltildi (boolean dönmeli)
+  // FIX 4: API çağrısına workspaceId eklendi — backend doğru workspace'e yazacak.
   const handleAddCard = useCallback(async (columnId, title) => {
     const tempId = `temp_${Date.now()}`;
     const tempCard = {
@@ -989,7 +1016,10 @@ const setColumns = useCallback((updater) => {
     ));
 
     try {
-      const res = await api.post(`/api/board/columns/${columnId}/cards`, { title });
+      const res = await api.post(
+        `/api/board/columns/${columnId}/cards`,
+        { title, workspaceId: activeWorkspaceId }  // ← workspaceId eklendi
+      );
       const savedCard = res.data?.data || res.data;
       setColumns(cols => cols.map(col =>
         col.id === columnId
@@ -998,22 +1028,20 @@ const setColumns = useCallback((updater) => {
       ));
     } catch (err) {
       console.error('Kart ekleme hatası:', err);
-      // BUGFIX: filter callback boolean döndürmeli, kart objesi değil
       setColumns(cols => cols.map(col =>
         col.id === columnId
           ? { ...col, cards: (col.cards || []).filter(c => c.id !== tempId) }
           : col
       ));
     }
-  }, []);
+  }, [activeWorkspaceId, setColumns]);
 
-  // ── Kart Düzenleme (modal aç) ───────────────────────────────────────────────
+  // ── Kart Düzenleme ───────────────────────────────────────────────────────────
   const handleEditCard = useCallback((card, columnId) => {
     setEditingCard({ card, columnId });
   }, []);
 
-  // ── Kart Kaydetme (modal'dan) ───────────────────────────────────────────────
-  // BUGFIX: handleSaveColumn'da yanlış URL prefix düzeltildi (/api/board/... tutarlı hale getirildi)
+  // ── Kart Kaydetme ────────────────────────────────────────────────────────────
   const handleSaveCard = useCallback(async (payload) => {
     const { cardId, originalColumnId, columnId: targetColumnId, ...formData } = payload;
     const isNew = !cardId;
@@ -1027,6 +1055,7 @@ const setColumns = useCallback((updater) => {
           dueDate: formData.dueDate || null,
           assigneeIds: formData.assignees,
           labels: formData.labels,
+          workspaceId: activeWorkspaceId,  // ← eklendi
         };
         const res = await api.post(`/api/board/columns/${targetColumnId}/cards`, body);
         const saved = res.data?.data || res.data;
@@ -1037,11 +1066,9 @@ const setColumns = useCallback((updater) => {
         console.error('Kart oluşturma hatası:', err);
       }
     } else {
-      // Optimistic update
       const buildAssignees = (ids) => (members || []).filter(m => (ids || []).includes(m.id));
 
       setColumns(prev => {
-        // 1. Kaynak sütundan kartı çıkar (sütun değiştiyse)
         let movedCard = null;
         let result = prev.map(col => {
           if (col.id === originalColumnId) {
@@ -1050,7 +1077,6 @@ const setColumns = useCallback((updater) => {
             if (targetColumnId !== originalColumnId) {
               return { ...col, cards: (col.cards || []).filter(c => c.id !== cardId) };
             }
-            // Aynı sütundaysa burada güncelle
             return {
               ...col,
               cards: (col.cards || []).map(c => c.id === cardId
@@ -1062,7 +1088,6 @@ const setColumns = useCallback((updater) => {
           return col;
         });
 
-        // 2. Hedef sütuna ekle (farklı sütuna taşındıysa)
         if (targetColumnId !== originalColumnId && movedCard) {
           const updatedCard = { ...movedCard, ...formData, assignees: buildAssignees(formData.assignees), columnId: targetColumnId };
           result = result.map(col => {
@@ -1086,6 +1111,7 @@ const setColumns = useCallback((updater) => {
           assigneeIds: formData.assignees,
           labels: formData.labels,
           checklist: formData.checklist,
+          workspaceId: activeWorkspaceId,  // ← eklendi
         };
         const res = await api.patch(`/api/board/cards/${cardId}`, body);
         const saved = res.data?.data || res.data;
@@ -1102,7 +1128,7 @@ const setColumns = useCallback((updater) => {
         } catch {}
       }
     }
-  }, [members, activeWorkspaceId]);
+  }, [members, activeWorkspaceId, setColumns]);
 
   // ── Kart Silme ──────────────────────────────────────────────────────────────
   const handleDeleteCard = useCallback(async (cardId, columnId) => {
@@ -1110,7 +1136,9 @@ const setColumns = useCallback((updater) => {
       col.id === columnId ? { ...col, cards: (col.cards || []).filter(c => c.id !== cardId) } : col
     ));
     try {
-      await api.delete(`/api/board/cards/${cardId}`);
+      await api.delete(`/api/board/cards/${cardId}`, {
+        data: { workspaceId: activeWorkspaceId }  // ← eklendi
+      });
     } catch (err) {
       console.error('Kart silme hatası:', err);
       try {
@@ -1119,7 +1147,7 @@ const setColumns = useCallback((updater) => {
         setColumns(data.columns || []);
       } catch {}
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, setColumns]);
 
   // ── Drag & Drop ─────────────────────────────────────────────────────────────
   const handleDrop = useCallback(async (e, targetColumnId) => {
@@ -1149,6 +1177,7 @@ const setColumns = useCallback((updater) => {
       await api.patch(`/api/board/cards/${cardId}/move`, {
         targetColumnId,
         newPosition: targetCards.length,
+        workspaceId: activeWorkspaceId,  // ← eklendi
       });
     } catch (err) {
       console.error('Kart taşıma hatası:', err);
@@ -1158,33 +1187,39 @@ const setColumns = useCallback((updater) => {
         setColumns(data.columns || []);
       } catch {}
     }
-  }, [columns, activeWorkspaceId]);
+  }, [columns, activeWorkspaceId, setColumns]);
 
   // ── Sütun İşlemleri ─────────────────────────────────────────────────────────
+  // FIX 5: Sütun oluşturma/güncelleme/silmede workspaceId eklendi.
   const handleAddColumn = useCallback(async (data) => {
     const tempId = `tempcol_${Date.now()}`;
     setColumns(cols => [...cols, { id: tempId, title: data.title, color: data.color, cards: [] }]);
     try {
-      const res = await api.post('/api/board/columns', { title: data.title, color: data.color });
+      const res = await api.post('/api/board/columns', {
+        title: data.title,
+        color: data.color,
+        workspaceId: activeWorkspaceId,  // ← eklendi
+      });
       const saved = res.data?.data || res.data;
       setColumns(cols => cols.map(col => col.id === tempId ? { ...saved, cards: [] } : col));
     } catch (err) {
       console.error('Sütun oluşturma hatası:', err);
       setColumns(cols => cols.filter(c => c.id !== tempId));
     }
-  }, []);
+  }, [activeWorkspaceId, setColumns]);
 
   const handleEditColumn = useCallback((column) => setEditingColumn(column), []);
 
-  // BUGFIX: handleSaveColumn — sütun düzenleme URL'i /api/board/columns/... olarak düzeltildi
   const handleSaveColumn = useCallback(async (data) => {
     if (editingColumn === 'new') {
       await handleAddColumn(data);
     } else {
-      // Optimistic
       setColumns(cols => cols.map(col => col.id === editingColumn.id ? { ...col, ...data } : col));
       try {
-        await api.patch(`/api/board/columns/${editingColumn.id}`, data);
+        await api.patch(`/api/board/columns/${editingColumn.id}`, {
+          ...data,
+          workspaceId: activeWorkspaceId,  // ← eklendi
+        });
       } catch (err) {
         console.error('Sütun güncelleme hatası:', err);
         try {
@@ -1194,12 +1229,14 @@ const setColumns = useCallback((updater) => {
         } catch {}
       }
     }
-  }, [editingColumn, handleAddColumn, activeWorkspaceId]);
+  }, [editingColumn, handleAddColumn, activeWorkspaceId, setColumns]);
 
   const handleDeleteColumn = useCallback(async (columnId) => {
     setColumns(cols => cols.filter(c => c.id !== columnId));
     try {
-      await api.delete(`/api/board/columns/${columnId}`);
+      await api.delete(`/api/board/columns/${columnId}`, {
+        data: { workspaceId: activeWorkspaceId }  // ← eklendi
+      });
     } catch (err) {
       console.error('Sütun silme hatası:', err);
       try {
@@ -1208,7 +1245,7 @@ const setColumns = useCallback((updater) => {
         setColumns(d.columns || []);
       } catch {}
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, setColumns]);
 
   // ── Filtre ───────────────────────────────────────────────────────────────────
   const totalCards = (columns || []).reduce((acc, col) => acc + (col.cards || []).length, 0);
@@ -1223,7 +1260,6 @@ const setColumns = useCallback((updater) => {
     }),
   }));
   const filteredTotal = filteredColumns.reduce((acc, col) => acc + (col.cards || []).length, 0);
-  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId);
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
