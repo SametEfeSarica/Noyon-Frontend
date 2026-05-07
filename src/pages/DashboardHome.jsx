@@ -475,12 +475,6 @@ export default function DashboardHome() {
                   <div className="flex items-center gap-2">
                     <IC d={P.task} size={14} className="text-emerald-400" />
                     <h2 className="text-sm font-semibold text-white">Son Görevler</h2>
-                    {recentTasks.length > 0 && (
-                      <span className="text-xs px-1.5 py-0.5 rounded"
-                        style={{ background: "#1e1e2c", color: "#6b7280" }}>
-                        {doneTasks}/{recentTasks.length}
-                      </span>
-                    )}
                   </div>
                   <Link to="/dashboard/gorevler" className="text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1">
                     Tümünü gör <IC d={P.chevRight} size={11} />
@@ -491,20 +485,7 @@ export default function DashboardHome() {
                   <div className="rounded-xl overflow-hidden"
                     style={{ background: "#111119", border: "1px solid #1e1e2c" }}>
                     {/* Progress bar */}
-                    <div className="px-4 pt-3.5 pb-2.5 border-b" style={{ borderColor: "#1e1e2c" }}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500">Tamamlanma</span>
-                        <span className="text-xs text-emerald-400 font-medium">
-                          {Math.round((doneTasks / recentTasks.length) * 100) || 0}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#1e1e2c" }}>
-                        <div className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${(doneTasks / recentTasks.length) * 100 || 0}%`,
-                            background: "linear-gradient(90deg, #34d399, #059669)",
-                            boxShadow: "0 0 8px #34d39966" }} />
-                      </div>
-                    </div>
+                   
                     <div className="py-1.5 px-1">
                       {recentTasks.map(t => (
   <TaskRow key={t.id} task={{
