@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import api from '../api/axiosInstance';
 
 // ─── Inject keyframes once ────────────────────────────────────────────────────
@@ -11,7 +11,7 @@ const injectStyles = () => {
     @keyframes calScaleIn  { from { opacity:0; transform:scale(0.96) translateY(-4px) } to { opacity:1; transform:scale(1) translateY(0) } }
     @keyframes calSlideUp  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
     @keyframes calPop      { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
-    @keyframes calSpin     { to { transform: rotate(360deg) } }
+    @keyframes calShimmer  { from{background-position:200% 0} to{background-position:-200% 0} }
 
     .cal-day { transition: background 0.13s ease, box-shadow 0.13s ease; }
     .cal-day:hover .cal-day-inner { background: #1e1e28; }
@@ -36,47 +36,36 @@ const injectStyles = () => {
     .cal-row           { animation: calSlideUp 0.22s ease both; }
     .cal-sidebar-item  { transition: background 0.12s ease, border-color 0.12s ease; }
     .cal-sidebar-item:hover { background: #1e1e28 !important; border-color: #2e2e3e !important; }
-
     .cal-today-ring { animation: calPop 0.4s ease; }
+
+    .cal-shimmer {
+      background: linear-gradient(90deg, #1a1a22 25%, #222230 50%, #1a1a22 75%);
+      background-size: 200% 100%;
+      animation: calShimmer 1.6s ease-in-out infinite;
+    }
   `;
   document.head.appendChild(s);
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const FONT  = '-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif';
+const FONT   = '-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif';
 const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
                  'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const DAYS_SHORT = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
 const DAYS_LONG  = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
 
 const EVENT_TYPES = {
-  task: {
-    label: 'Görev',
-    color: '#6c6af6', bg: 'rgba(108,106,246,0.18)', border: 'rgba(108,106,246,0.35)',
-    dot: '#6c6af6',
-  },
-  subscription: {
-    label: 'Abonelik',
-    color: '#a855f7', bg: 'rgba(168,85,247,0.16)', border: 'rgba(168,85,247,0.32)',
-    dot: '#a855f7',
-  },
-  payment: {
-    label: 'Ödeme',
-    color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.30)',
-    dot: '#10b981',
-  },
-  note: {
-    label: 'Not',
-    color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.28)',
-    dot: '#f59e0b',
-  },
+  task:         { label: 'Görev',    color: '#6c6af6', bg: 'rgba(108,106,246,0.18)', border: 'rgba(108,106,246,0.35)', dot: '#6c6af6' },
+  subscription: { label: 'Abonelik', color: '#a855f7', bg: 'rgba(168,85,247,0.16)',  border: 'rgba(168,85,247,0.32)',  dot: '#a855f7' },
+  payment:      { label: 'Ödeme',    color: '#10b981', bg: 'rgba(16,185,129,0.15)',  border: 'rgba(16,185,129,0.30)',  dot: '#10b981' },
+  note:         { label: 'Not',      color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',  border: 'rgba(245,158,11,0.28)',  dot: '#f59e0b' },
 };
 
 const PRIORITY_COLORS = {
   urgent: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e',
 };
 
-// ─── Tiny SVG icons ───────────────────────────────────────────────────────────
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
 const IC = {
   ChevLeft: () => (
     <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
@@ -86,11 +75,6 @@ const IC = {
   ChevRight: () => (
     <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
       <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-    </svg>
-  ),
-  ChevDown: () => (
-    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
     </svg>
   ),
   Plus: () => (
@@ -119,17 +103,50 @@ const IC = {
       <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/>
     </svg>
   ),
-  Refresh: () => (
+  Trash: () => (
     <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd"/>
+      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/>
     </svg>
   ),
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const generateId = () => `ev_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+// ÖNEMLİ DEĞİŞİKLİK: Kullanıcıya özgü key kullanıyoruz.
+// Çıkış yapıldığında token silinir, giriş yapılınca yeni token'a göre
+// doğru etkinlikler yüklenir — karışma ve kaybolma sorunu ortadan kalkar.
+const getLS_KEY = () => {
+  try {
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('authToken') ||
+      localStorage.getItem('access_token') ||
+      'guest';
+    // Token'ın ilk 20 karakterinden alfanümerik bir anahtar türet
+    const userKey = token.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '_');
+    return `calendar_manual_events_${userKey}`;
+  } catch {
+    return 'calendar_manual_events_guest';
+  }
+};
 
-// FIX 2: Timezone-safe date string oluşturucu
+const loadManualEvents = () => {
+  try {
+    const saved = localStorage.getItem(getLS_KEY());
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+};
+
+const saveManualEvents = (events) => {
+  try {
+    localStorage.setItem(getLS_KEY(), JSON.stringify(events));
+  } catch (e) {
+    console.warn('localStorage yazılamadı:', e);
+  }
+};
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+const generateId = () => `ev_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
 const toLocalDateStr = (date) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -137,11 +154,16 @@ const toLocalDateStr = (date) => {
   return `${y}-${m}-${d}`;
 };
 
+const parseDateStr = (dateStr) => {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  return new Date(y, mo - 1, d);
+};
+
 const getMonthGrid = (year, month) => {
-  const firstDay   = new Date(year, month, 1).getDay();
-  const daysInMonth= new Date(year, month + 1, 0).getDate();
-  const daysInPrev = new Date(year, month, 0).getDate();
-  const offset     = firstDay === 0 ? 6 : firstDay - 1;
+  const firstDay    = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrev  = new Date(year, month, 0).getDate();
+  const offset      = firstDay === 0 ? 6 : firstDay - 1;
   const cells = [];
   for (let i = offset - 1; i >= 0; i--)
     cells.push({ day: daysInPrev - i, month: month - 1, year: month === 0 ? year - 1 : year, overflow: true });
@@ -160,38 +182,9 @@ const isSameDay = (a, b) =>
 
 const isToday = (year, month, day) => isSameDay(new Date(year, month, day), new Date());
 
-// FIX 2: Timezone-safe ISO string'den local Date parse eder
-const parseDateStr = (dateStr) => {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
-
-// ─── localStorage helpers ─────────────────────────────────────────────────────
-const LS_KEY = 'cal_manual_events';
-
-const loadManualEvents = () => {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveManualEvents = (events) => {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(events));
-  } catch {}
-};
-
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = ({ w = '100%', h = 14, r = 6 }) => (
-  <div style={{
-    width: w, height: h, borderRadius: r,
-    background: 'linear-gradient(90deg,#1a1a22 25%,#222230 50%,#1a1a22 75%)',
-    backgroundSize: '400% 100%',
-    animation: 'calSpin 1.6s ease-in-out infinite',
-  }} />
+  <div className="cal-shimmer" style={{ width: w, height: h, borderRadius: r }} />
 );
 
 // ─── Event Pill ───────────────────────────────────────────────────────────────
@@ -243,23 +236,19 @@ const DayCell = memo(({ cell, events, selected, onClick, onEventClick }) => {
           display: 'flex', flexDirection: 'column', gap: 3,
         }}
       >
-        {/* Day number */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
           <span
             className={today ? 'cal-today-ring' : ''}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: today ? 26 : 22, height: today ? 26 : 22,
-              borderRadius: '50%',
+              width: today ? 26 : 22, height: today ? 26 : 22, borderRadius: '50%',
               background: today ? '#6c6af6' : 'transparent',
               color: today ? '#fff' : isSelected ? '#9d9cf8' : cell.overflow ? '#35354a' : '#9090a0',
-              fontSize: 12.5, fontWeight: today ? 700 : 500,
-              lineHeight: 1, flexShrink: 0,
+              fontSize: 12.5, fontWeight: today ? 700 : 500, lineHeight: 1, flexShrink: 0,
             }}
           >
             {cell.day}
           </span>
-          {/* Add event hint */}
           <button
             className="cal-add-btn"
             onClick={(e) => { e.stopPropagation(); onClick(cell, true); }}
@@ -275,8 +264,6 @@ const DayCell = memo(({ cell, events, selected, onClick, onEventClick }) => {
             <IC.Plus />
           </button>
         </div>
-
-        {/* Event pills */}
         {visible.map(ev => (
           <EventPill key={ev.id} event={ev} onClick={onEventClick} compact />
         ))}
@@ -286,13 +273,10 @@ const DayCell = memo(({ cell, events, selected, onClick, onEventClick }) => {
           </span>
         )}
       </div>
-
-      {/* Selected border highlight */}
       {isSelected && (
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          boxShadow: 'inset 0 0 0 1.5px rgba(108,106,246,0.4)',
-          borderRadius: 1,
+          boxShadow: 'inset 0 0 0 1.5px rgba(108,106,246,0.4)', borderRadius: 1,
         }} />
       )}
     </div>
@@ -300,8 +284,8 @@ const DayCell = memo(({ cell, events, selected, onClick, onEventClick }) => {
 });
 
 // ─── Day Detail Panel ─────────────────────────────────────────────────────────
-const DayPanel = memo(({ date, events, onClose, onAdd }) => {
-  const today = date && isSameDay(date, new Date());
+const DayPanel = memo(({ date, events, onClose, onAdd, onDelete }) => {
+  const today   = date && isSameDay(date, new Date());
   const dayName = date ? DAYS_LONG[(date.getDay() + 6) % 7] : '';
 
   return (
@@ -311,12 +295,7 @@ const DayPanel = memo(({ date, events, onClose, onAdd }) => {
       display: 'flex', flexDirection: 'column',
       animation: 'calFadeIn 0.18s ease',
     }}>
-      {/* Panel header */}
-      <div style={{
-        padding: '16px 16px 12px',
-        borderBottom: '1px solid #1e1e28',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-      }}>
+      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #1e1e28', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           {date ? (
             <>
@@ -324,11 +303,7 @@ const DayPanel = memo(({ date, events, onClose, onAdd }) => {
                 {dayName}
               </p>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-                <span style={{
-                  fontSize: 32, fontWeight: 300, lineHeight: 1,
-                  color: today ? '#9d9cf8' : '#d0d0e0',
-                  letterSpacing: '-0.03em',
-                }}>
+                <span style={{ fontSize: 32, fontWeight: 300, lineHeight: 1, color: today ? '#9d9cf8' : '#d0d0e0', letterSpacing: '-0.03em' }}>
                   {date.getDate()}
                 </span>
                 <span style={{ fontSize: 13, color: '#45455a', fontWeight: 500 }}>
@@ -336,52 +311,32 @@ const DayPanel = memo(({ date, events, onClose, onAdd }) => {
                 </span>
               </div>
               {today && (
-                <span style={{
-                  display: 'inline-block', marginTop: 6, fontSize: 10.5,
-                  background: 'rgba(108,106,246,0.15)', border: '1px solid rgba(108,106,246,0.3)',
-                  color: '#9d9cf8', padding: '2px 8px', borderRadius: 20, fontWeight: 600,
-                }}>Bugün</span>
+                <span style={{ display: 'inline-block', marginTop: 6, fontSize: 10.5, background: 'rgba(108,106,246,0.15)', border: '1px solid rgba(108,106,246,0.3)', color: '#9d9cf8', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+                  Bugün
+                </span>
               )}
             </>
           ) : (
             <p style={{ margin: 0, fontSize: 13, color: '#45455a' }}>Gün seç</p>
           )}
         </div>
-        <button
-          onClick={onClose}
-          style={{
-            width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: '#45455a', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all 0.12s ease',
-          }}
+        <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', background: 'transparent', color: '#45455a', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s ease' }}
           onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#45455a'; }}
-        >
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#45455a'; }}>
           <IC.X />
         </button>
       </div>
 
-      {/* Add event button */}
       {date && (
         <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e1e28' }}>
-          <button
-            onClick={onAdd}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-              padding: '8px 12px', borderRadius: 9, border: '1px dashed #2e2e3e',
-              background: 'transparent', cursor: 'pointer', color: '#6c6af6',
-              fontSize: 12.5, fontWeight: 550, fontFamily: FONT,
-              transition: 'all 0.12s ease',
-            }}
+          <button onClick={onAdd} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px dashed #2e2e3e', background: 'transparent', cursor: 'pointer', color: '#6c6af6', fontSize: 12.5, fontWeight: 550, fontFamily: FONT, transition: 'all 0.12s ease' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(108,106,246,0.07)'; e.currentTarget.style.borderColor = 'rgba(108,106,246,0.35)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#2e2e3e'; }}
-          >
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#2e2e3e'; }}>
             <IC.Plus /> Etkinlik ekle
           </button>
         </div>
       )}
 
-      {/* Events list */}
       <div className="cal-scroll" style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
         {!date ? (
           <PanelEmpty message="Takvimde bir güne tıklayarak etkinlikleri görüntüleyin." />
@@ -389,7 +344,7 @@ const DayPanel = memo(({ date, events, onClose, onAdd }) => {
           <PanelEmpty message="Bu gün için etkinlik bulunmuyor." />
         ) : (
           events.map((ev, i) => (
-            <PanelEventCard key={ev.id} event={ev} delay={i * 35} />
+            <PanelEventCard key={ev.id} event={ev} delay={i * 35} onDelete={onDelete} />
           ))
         )}
       </div>
@@ -399,63 +354,48 @@ const DayPanel = memo(({ date, events, onClose, onAdd }) => {
 
 const PanelEmpty = ({ message }) => (
   <div style={{ padding: '32px 8px', textAlign: 'center' }}>
-    <div style={{
-      width: 40, height: 40, borderRadius: '50%',
-      background: '#1a1a22', border: '1px solid #252530',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      margin: '0 auto 12px', color: '#35354a',
-    }}>
+    <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#1a1a22', border: '1px solid #252530', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: '#35354a' }}>
       <IC.Calendar />
     </div>
     <p style={{ margin: 0, fontSize: 12.5, color: '#35354a', lineHeight: 1.6 }}>{message}</p>
   </div>
 );
 
-const PanelEventCard = memo(({ event, delay }) => {
-  const cfg = EVENT_TYPES[event.type] || EVENT_TYPES.task;
+const PanelEventCard = memo(({ event, delay, onDelete }) => {
+  const cfg      = EVENT_TYPES[event.type] || EVENT_TYPES.task;
+  const isManual = String(event.id).startsWith('ev_') || event.isManual;
+
   return (
-    <div
-      className="cal-sidebar-item"
-      style={{
-        background: '#19191f', border: '1px solid #232330',
-        borderRadius: 10, padding: '10px 12px',
-        animation: `calSlideUp 0.2s ease ${delay}ms both`,
-        borderLeft: `3px solid ${cfg.color}`,
-        cursor: 'default',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          fontSize: 10.5, fontWeight: 650, color: cfg.color,
-          background: cfg.bg, border: `1px solid ${cfg.border}`,
-          padding: '1px 6px', borderRadius: 4,
-        }}>
-          {event.type === 'task' && <IC.Flag />}
-          {event.type === 'subscription' && <IC.CreditCard />}
-          {event.type === 'payment' && <IC.CreditCard />}
-          {cfg.label}
-        </span>
-        {event.priority && (
-          <span style={{
-            fontSize: 10.5, fontWeight: 600,
-            color: PRIORITY_COLORS[event.priority] || '#9090a0',
-          }}>
-            ● {event.priority === 'urgent' ? 'Acil' : event.priority === 'high' ? 'Yüksek' : event.priority === 'medium' ? 'Orta' : 'Düşük'}
+    <div className="cal-sidebar-item" style={{
+      background: '#19191f', border: '1px solid #232330',
+      borderRadius: 10, padding: '10px 12px',
+      animation: `calSlideUp 0.2s ease ${delay}ms both`,
+      borderLeft: `3px solid ${cfg.color}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 650, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, padding: '1px 6px', borderRadius: 4 }}>
+            {(event.type === 'task') && <IC.Flag />}
+            {(event.type === 'subscription' || event.type === 'payment') && <IC.CreditCard />}
+            {cfg.label}
           </span>
+          {event.priority && (
+            <span style={{ fontSize: 10.5, fontWeight: 600, color: PRIORITY_COLORS[event.priority] || '#9090a0' }}>
+              ● {event.priority === 'urgent' ? 'Acil' : event.priority === 'high' ? 'Yüksek' : event.priority === 'medium' ? 'Orta' : 'Düşük'}
+            </span>
+          )}
+        </div>
+        {isManual && onDelete && (
+          <button onClick={() => onDelete(event.id)} style={{ width: 22, height: 22, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', color: '#35354a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.12s ease', padding: 0 }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#35354a'; }}>
+            <IC.Trash />
+          </button>
         )}
       </div>
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#c8c8d8', lineHeight: 1.4 }}>
-        {event.title}
-      </p>
-      {event.subtitle && (
-        <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#45455a' }}>{event.subtitle}</p>
-      )}
-      {event.amount && (
-        <p style={{ margin: '5px 0 0', fontSize: 13, fontWeight: 700, color: '#10b981' }}>
-          ₺{parseFloat(event.amount).toFixed(0)}
-        </p>
-      )}
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#c8c8d8', lineHeight: 1.4 }}>{event.title}</p>
+      {event.subtitle && <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#45455a' }}>{event.subtitle}</p>}
+      {event.amount && <p style={{ margin: '5px 0 0', fontSize: 13, fontWeight: 700, color: '#10b981' }}>₺{parseFloat(event.amount).toFixed(0)}</p>}
     </div>
   );
 });
@@ -467,11 +407,7 @@ const EventModal = ({ date, onClose, onSave }) => {
 
   const handleSave = () => {
     if (!form.title.trim()) return;
-    onSave({
-      id: generateId(), ...form,
-      // FIX 2: Timezone-safe date string kullan
-      date: toLocalDateStr(date),
-    });
+    onSave({ id: generateId(), ...form, date: toLocalDateStr(date), isManual: true });
     onClose();
   };
 
@@ -485,49 +421,29 @@ const EventModal = ({ date, onClose, onSave }) => {
     width: '100%', padding: '8px 11px', borderRadius: 8,
     border: '1px solid #252530', background: '#0e0e14',
     color: '#d0d0e0', fontSize: 13, fontFamily: FONT,
-    outline: 'none', boxSizing: 'border-box',
-    transition: 'border-color 0.12s ease',
+    outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.12s ease',
   };
 
   return (
-    <div
-      className="cal-modal-overlay"
-      style={{
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-      }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
-      <div className="cal-modal-box" style={{
-        width: '100%', maxWidth: 440,
-        background: '#16161e', border: '1px solid #252530',
-        borderRadius: 16, overflow: 'hidden',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
-      }}>
-        {/* Modal header */}
+    <div className="cal-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="cal-modal-box" style={{ width: '100%', maxWidth: 440, background: '#16161e', border: '1px solid #252530', borderRadius: 16, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}>
         <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #1e1e28', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ margin: 0, fontSize: 11, color: '#45455a', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-              Yeni Etkinlik
-            </p>
+            <p style={{ margin: 0, fontSize: 11, color: '#45455a', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Yeni Etkinlik</p>
             <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 650, color: '#d0d0e0' }}>
               {date ? `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}` : ''}
             </p>
           </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#45455a', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s ease' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#c0c0d0'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#45455a'; }}>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#45455a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <IC.X />
           </button>
         </div>
 
-        {/* Body */}
         <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 15 }}>
           <div>
             <LabelS>Başlık *</LabelS>
-            <input autoFocus value={form.title} onChange={e => up('title', e.target.value)}
-              placeholder="Etkinlik başlığı…" style={inputS}
+            <input autoFocus value={form.title} onChange={e => up('title', e.target.value)} placeholder="Etkinlik başlığı…" style={inputS}
               onFocus={e => e.target.style.borderColor = 'rgba(108,106,246,0.5)'}
               onBlur={e => e.target.style.borderColor = '#252530'}
               onKeyDown={e => e.key === 'Enter' && handleSave()}
@@ -537,9 +453,7 @@ const EventModal = ({ date, onClose, onSave }) => {
             <div>
               <LabelS>Tür</LabelS>
               <select value={form.type} onChange={e => up('type', e.target.value)} style={{ ...inputS, cursor: 'pointer' }}>
-                {Object.entries(EVENT_TYPES).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
+                {Object.entries(EVENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
             <div>
@@ -554,8 +468,7 @@ const EventModal = ({ date, onClose, onSave }) => {
           </div>
           <div>
             <LabelS>Not</LabelS>
-            <textarea value={form.note} onChange={e => up('note', e.target.value)}
-              placeholder="İsteğe bağlı not…" rows={2}
+            <textarea value={form.note} onChange={e => up('note', e.target.value)} placeholder="İsteğe bağlı not…" rows={2}
               style={{ ...inputS, resize: 'vertical', lineHeight: 1.55 }}
               onFocus={e => e.target.style.borderColor = 'rgba(108,106,246,0.5)'}
               onBlur={e => e.target.style.borderColor = '#252530'}
@@ -563,16 +476,11 @@ const EventModal = ({ date, onClose, onSave }) => {
           </div>
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '10px 20px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #252530', background: 'transparent', color: '#9090a0', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: FONT, transition: 'all 0.12s ease' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#1e1e28'; e.currentTarget.style.color = '#d0d0e0'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9090a0'; }}>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #252530', background: 'transparent', color: '#9090a0', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: FONT }}>
             İptal
           </button>
-          <button onClick={handleSave} disabled={!form.title.trim()} style={{ padding: '7px 18px', borderRadius: 8, border: 'none', background: form.title.trim() ? '#6c6af6' : '#252530', color: form.title.trim() ? '#fff' : '#45455a', cursor: form.title.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, fontFamily: FONT, transition: 'all 0.12s ease' }}
-            onMouseEnter={e => { if (form.title.trim()) e.currentTarget.style.background = '#5856d6'; }}
-            onMouseLeave={e => { if (form.title.trim()) e.currentTarget.style.background = '#6c6af6'; }}>
+          <button onClick={handleSave} disabled={!form.title.trim()} style={{ padding: '7px 18px', borderRadius: 8, border: 'none', background: form.title.trim() ? '#6c6af6' : '#252530', color: form.title.trim() ? '#fff' : '#45455a', cursor: form.title.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, fontFamily: FONT }}>
             Kaydet
           </button>
         </div>
@@ -581,31 +489,32 @@ const EventModal = ({ date, onClose, onSave }) => {
   );
 };
 
-// ─── Main Calendar Page ───────────────────────────────────────────────────────
+// ─── Main Calendar ────────────────────────────────────────────────────────────
 export default function Calendar() {
   useEffect(() => { injectStyles(); }, []);
 
-  const userId = localStorage.getItem('userId') || 1;
-  const today  = new Date();
+  const today = new Date();
 
-  const [curYear,  setCurYear]  = useState(today.getFullYear());
-  const [curMonth, setCurMonth] = useState(today.getMonth());
-  const [loading,  setLoading]  = useState(true);
-  const [apiEvents,    setApiEvents]    = useState([]);  // API'den gelen eventler
-  const [manualEvents, setManualEvents] = useState(() => loadManualEvents()); // localStorage'dan gelen
-  const [selectedDate, setSelected] = useState(today);
-  const [showModal,    setShowModal] = useState(false);
-  const [modalDate,    setModalDate] = useState(null);
-  const [activeFilter, setFilter]   = useState('all');
-  const [panelOpen,    setPanelOpen] = useState(true);
-  const [transitioning, setTrans]   = useState(false);
+  const [curYear,       setCurYear]    = useState(today.getFullYear());
+  const [curMonth,      setCurMonth]   = useState(today.getMonth());
+  const [loading,       setLoading]    = useState(true);
+  const [apiEvents,     setApiEvents]  = useState([]);
+  // ÖNEMLİ: useState başlatıcısı component mount'ta bir kez çalışır.
+  // Kullanıcıya özgü key ile localStorage'dan yükle.
+  const [manualEvents,  setManualEvents] = useState(() => loadManualEvents());
+  const [selectedDate,  setSelected]   = useState(today);
+  const [showModal,     setShowModal]  = useState(false);
+  const [modalDate,     setModalDate]  = useState(null);
+  const [activeFilter,  setFilter]     = useState('all');
+  const [panelOpen,     setPanelOpen]  = useState(true);
+  const [transitioning, setTrans]      = useState(false);
 
-  // FIX 3: Manuel eventler değişince localStorage'a kaydet
+  // manualEvents her değiştiğinde kullanıcıya özgü key ile kaydet
   useEffect(() => {
     saveManualEvents(manualEvents);
   }, [manualEvents]);
 
-  // ── Fetch tasks + subscriptions and map to events
+  // ── API fetch ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -617,44 +526,43 @@ export default function Calendar() {
         const ev = [];
 
         if (tRes.status === 'fulfilled') {
-          const tasksData = tRes.value.data.data || tRes.value.data;
+          const tasksData = tRes.value.data?.data || tRes.value.data || [];
           tasksData.forEach(t => {
             if (t.dueDate) {
               ev.push({
-                id: `task_${t.id}`,
-                title: t.title,
-                type: 'task',
-                date: t.dueDate.split('T')[0], // FIX 2: Sadece tarih kısmını al
+                id:       `task_${t.id}`,
+                title:    t.title,
+                type:     'task',
+                date:     t.dueDate.split('T')[0],
                 priority: t.priority?.toLowerCase() || 'medium',
                 subtitle: t.status || '',
+                isManual: false,
               });
             }
           });
         }
 
         if (sRes.status === 'fulfilled') {
-          const subsData = sRes.value.data.data || sRes.value.data;
+          const subsData = sRes.value.data?.data || sRes.value.data || [];
           subsData.forEach(s => {
             if (s.renewalDay) {
-              // FIX 2: toLocalDateStr kullan, UTC kayması olmaz
               const d = new Date(curYear, curMonth, s.renewalDay);
               ev.push({
-                id: `sub_${s.id}`,
-                title: s.platformName,
-                type: 'subscription',
-                date: toLocalDateStr(d),
+                id:       `sub_${s.id}`,
+                title:    s.platformName,
+                type:     'subscription',
+                date:     toLocalDateStr(d),
                 subtitle: `Her ayın ${s.renewalDay}. günü`,
-                amount: s.amount,
+                amount:   s.amount,
+                isManual: false,
               });
             }
           });
         }
 
-        // FIX 1: API boş dönse bile demo event yok, boş array bırak
         setApiEvents(ev);
       } catch (error) {
-        console.error("Takvim verileri çekilirken hata:", error);
-        // FIX 1: Hata durumunda da demo event yükleme
+        console.error('Takvim verileri çekilirken hata:', error);
         setApiEvents([]);
       } finally {
         setLoading(false);
@@ -663,17 +571,15 @@ export default function Calendar() {
     load();
   }, [curMonth, curYear]);
 
-  // API + manuel eventleri birleştir
   const events = [...apiEvents, ...manualEvents];
 
-  // ── Navigation with transition
   const navigate = useCallback((dir) => {
     setTrans(true);
     setTimeout(() => {
       setCurMonth(m => {
         const next = m + dir;
         if (next < 0)  { setCurYear(y => y - 1); return 11; }
-        if (next > 11) { setCurYear(y => y + 1); return 0; }
+        if (next > 11) { setCurYear(y => y + 1); return 0;  }
         return next;
       });
       setTrans(false);
@@ -688,23 +594,19 @@ export default function Calendar() {
       setSelected(today);
       setTrans(false);
     }, 120);
-  }, [today]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Filter events
   const filteredEvents = events.filter(ev =>
     activeFilter === 'all' || ev.type === activeFilter
   );
 
   const getEventsForCell = useCallback((cell) => {
-    const dateStr = `${cell.year}-${String(cell.month + 1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`;
+    const dateStr = `${cell.year}-${String(cell.month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`;
     return filteredEvents.filter(ev => ev.date === dateStr);
   }, [filteredEvents]);
 
   const selectedEvents = selectedDate
-    ? filteredEvents.filter(ev => {
-        const dateStr = toLocalDateStr(selectedDate); // FIX 2
-        return ev.date === dateStr;
-      })
+    ? filteredEvents.filter(ev => ev.date === toLocalDateStr(selectedDate))
     : [];
 
   const handleDayClick = useCallback((cell, openModal = false) => {
@@ -714,9 +616,22 @@ export default function Calendar() {
     if (openModal) { setModalDate(d); setShowModal(true); }
   }, [panelOpen]);
 
-  // FIX 3: Yeni eventi manualEvents'e ekle, localStorage'a persist edilsin
-  const handleAddEvent = useCallback((event) => {
-    setManualEvents(prev => [...prev, event]);
+  const handleAddEvent = useCallback((eventData) => {
+    const newEvent = {
+      id:       eventData.id || generateId(),
+      title:    eventData.title,
+      type:     eventData.type,
+      date:     eventData.date,
+      priority: eventData.priority,
+      note:     eventData.note || '',
+      subtitle: 'Manuel Etkinlik',
+      isManual: true,
+    };
+    setManualEvents(prev => [...prev, newEvent]);
+  }, []);
+
+  const handleDeleteEvent = useCallback((eventId) => {
+    setManualEvents(prev => prev.filter(ev => ev.id !== eventId));
   }, []);
 
   const cells = getMonthGrid(curYear, curMonth);
@@ -724,113 +639,56 @@ export default function Calendar() {
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
   return (
-    <div style={{
-      display: 'flex', height: '100%', fontFamily: FONT,
-      WebkitFontSmoothing: 'antialiased', color: '#d0d0e0',
-      background: '#0e0e14', overflow: 'hidden',
-    }}>
-
-      {/* ── Main area ────────────────────────────────────────────────────────── */}
+    <div style={{ display: 'flex', height: '100%', fontFamily: FONT, WebkitFontSmoothing: 'antialiased', color: '#d0d0e0', background: '#0e0e14', overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
-        {/* Top Navigation Bar */}
-        <header style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '13px 20px 12px',
-          borderBottom: '1px solid #1e1e28',
-          flexShrink: 0, flexWrap: 'wrap', rowGap: 8,
-        }}>
-          {/* Month / year title */}
+        <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 20px 12px', borderBottom: '1px solid #1e1e28', flexShrink: 0, flexWrap: 'wrap', rowGap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <h1 style={{
-              margin: 0, fontSize: 20, fontWeight: 700,
-              color: '#e0e0ee', letterSpacing: '-0.025em', lineHeight: 1,
-            }}>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#e0e0ee', letterSpacing: '-0.025em', lineHeight: 1 }}>
               {MONTHS[curMonth]}
             </h1>
-            <span style={{ fontSize: 18, fontWeight: 300, color: '#35354a' }}>
-              {curYear}
-            </span>
+            <span style={{ fontSize: 18, fontWeight: 300, color: '#35354a' }}>{curYear}</span>
           </div>
 
-          {/* Prev / Today / Next */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {[
               { label: <IC.ChevLeft />,  fn: () => navigate(-1) },
               { label: 'Bugün',           fn: goToday },
               { label: <IC.ChevRight />, fn: () => navigate(1) },
             ].map((b, i) => (
-              <button key={i} className="cal-nav-btn" onClick={b.fn}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: typeof b.label === 'string' ? '5px 12px' : '5px 8px',
-                  borderRadius: 8, border: '1px solid #252530', background: 'transparent',
-                  color: '#9090a0', cursor: 'pointer', fontSize: 12.5, fontWeight: 500,
-                  fontFamily: FONT, transition: 'all 0.12s ease', whiteSpace: 'nowrap',
-                }}>
+              <button key={i} className="cal-nav-btn" onClick={b.fn} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: typeof b.label === 'string' ? '5px 12px' : '5px 8px', borderRadius: 8, border: '1px solid #252530', background: 'transparent', color: '#9090a0', cursor: 'pointer', fontSize: 12.5, fontWeight: 500, fontFamily: FONT, whiteSpace: 'nowrap' }}>
                 {b.label}
               </button>
             ))}
           </div>
 
-          {/* Filter chips */}
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {[{ id: 'all', label: 'Tümü' }, ...Object.entries(EVENT_TYPES).map(([k, v]) => ({ id: k, label: v.label }))].map(f => (
-              <button key={f.id} className={`cal-pill-btn ${activeFilter === f.id ? 'active' : ''}`}
-                onClick={() => setFilter(f.id)}
-                style={{
-                  padding: '4px 10px', borderRadius: 6,
-                  border: `1px solid ${activeFilter === f.id ? 'rgba(108,106,246,0.35)' : '#252530'}`,
-                  background: activeFilter === f.id ? '#252535' : 'transparent',
-                  color: activeFilter === f.id ? '#9d9cf8' : '#55556a',
-                  cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: FONT, transition: 'all 0.12s ease',
-                }}>
+              <button key={f.id} className={`cal-pill-btn ${activeFilter === f.id ? 'active' : ''}`} onClick={() => setFilter(f.id)}
+                style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${activeFilter === f.id ? 'rgba(108,106,246,0.35)' : '#252530'}`, background: activeFilter === f.id ? '#252535' : 'transparent', color: activeFilter === f.id ? '#9d9cf8' : '#55556a', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: FONT }}>
                 {f.label}
               </button>
             ))}
           </div>
 
-          {/* Right actions */}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
             <button onClick={() => setPanelOpen(v => !v)} className="cal-nav-btn"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8,
-                border: `1px solid ${panelOpen ? 'rgba(108,106,246,0.3)' : '#252530'}`,
-                background: panelOpen ? 'rgba(108,106,246,0.08)' : 'transparent',
-                color: panelOpen ? '#9d9cf8' : '#9090a0', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: FONT,
-              }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: `1px solid ${panelOpen ? 'rgba(108,106,246,0.3)' : '#252530'}`, background: panelOpen ? 'rgba(108,106,246,0.08)' : 'transparent', color: panelOpen ? '#9d9cf8' : '#9090a0', cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: FONT }}>
               <IC.Calendar /> Panel
             </button>
           </div>
         </header>
 
-        {/* Calendar grid + day panel */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-
-          {/* Grid */}
-          <div style={{
-            flex: 1, display: 'flex', flexDirection: 'column',
-            overflow: 'hidden', minWidth: 0,
-            opacity: transitioning ? 0 : 1, transition: 'opacity 0.12s ease',
-          }}>
-            {/* Day headers */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(7,1fr)',
-              borderBottom: '1px solid #1e1e28', flexShrink: 0,
-            }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, opacity: transitioning ? 0 : 1, transition: 'opacity 0.12s ease' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid #1e1e28', flexShrink: 0 }}>
               {DAYS_SHORT.map((d, i) => (
-                <div key={i} style={{
-                  padding: '9px 10px', fontSize: 11.5, fontWeight: 650,
-                  color: i >= 5 ? '#3a3a4a' : '#45455a',
-                  textAlign: 'center', borderRight: i < 6 ? '1px solid #1e1e28' : 'none',
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                }}>
+                <div key={i} style={{ padding: '9px 10px', fontSize: 11.5, fontWeight: 650, color: i >= 5 ? '#3a3a4a' : '#45455a', textAlign: 'center', borderRight: i < 6 ? '1px solid #1e1e28' : 'none', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {d}
                 </div>
               ))}
             </div>
 
-            {/* Weeks */}
             <div className="cal-scroll" style={{ flex: 1, overflowY: 'auto' }}>
               {loading ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
@@ -844,7 +702,7 @@ export default function Calendar() {
               ) : (
                 weeks.map((week, wi) => (
                   <div key={wi} className="cal-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', animationDelay: `${wi * 28}ms` }}>
-                    {week.map((cell, ci) => (
+                    {week.map((cell) => (
                       <DayCell
                         key={`${cell.year}-${cell.month}-${cell.day}`}
                         cell={cell}
@@ -852,7 +710,6 @@ export default function Calendar() {
                         selected={selectedDate}
                         onClick={handleDayClick}
                         onEventClick={(ev) => {
-                          // FIX 2: parseDateStr ile timezone-safe parse
                           setSelected(parseDateStr(ev.date));
                           setPanelOpen(true);
                         }}
@@ -864,19 +721,18 @@ export default function Calendar() {
             </div>
           </div>
 
-          {/* Day detail panel */}
           {panelOpen && (
             <DayPanel
               date={selectedDate}
               events={selectedEvents}
               onClose={() => setPanelOpen(false)}
               onAdd={() => { setModalDate(selectedDate); setShowModal(true); }}
+              onDelete={handleDeleteEvent}
             />
           )}
         </div>
       </div>
 
-      {/* ── Event Modal ───────────────────────────────────────────────────────── */}
       {showModal && (
         <EventModal
           date={modalDate}

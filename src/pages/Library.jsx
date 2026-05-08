@@ -27,34 +27,14 @@
   };
 
   // ── localStorage helpers ──────────────────────────────────────────────────────
-  const LS_BOOKS = "library_books";
-  const LS_CATS  = "library_categories";
+const DEFAULT_CATEGORIES = [
+  { id: "design",       label: "Design",       color: "#34d399" },
+  { id: "engineering",  label: "Engineering",  color: "#60a5fa" },
+  { id: "productivity", label: "Productivity", color: "#f59e0b" },
+  { id: "philosophy",   label: "Philosophy",   color: "#f87171" },
+  { id: "business",     label: "Business",     color: "#fb923c" },
+];
 
-  function loadBooks() {
-    try { return JSON.parse(localStorage.getItem(LS_BOOKS)) || []; }
-    catch { return []; }
-  }
-
-  function saveBooks(books) {
-    localStorage.setItem(LS_BOOKS, JSON.stringify(books));
-  }
-
-  const DEFAULT_CATEGORIES = [
-    { id: "design",       label: "Design",       color: "#34d399" },
-    { id: "engineering",  label: "Engineering",  color: "#60a5fa" },
-    { id: "productivity", label: "Productivity", color: "#f59e0b" },
-    { id: "philosophy",   label: "Philosophy",   color: "#f87171" },
-    { id: "business",     label: "Business",     color: "#fb923c" },
-  ];
-
-  function loadCategories() {
-    try { return JSON.parse(localStorage.getItem(LS_CATS)) || DEFAULT_CATEGORIES; }
-    catch { return DEFAULT_CATEGORIES; }
-  }
-
-  function saveCategories(cats) {
-    localStorage.setItem(LS_CATS, JSON.stringify(cats));
-  }
 
   // ── Tema Renkleri ─────────────────────────────────────────────────────────────
   const BOOK_THEMES = [
@@ -227,38 +207,53 @@
   }
 
   // ── Add Book Modal Component ──────────────────────────────────────────────────
-  function AddBookModal({ categories, onClose, onAdd }) {
-    const [form, setForm] = useState({
-      title: '', author: '', category: categories[0]?.id || '',
-      pages: '', currentPage: '', cover: '', description: '',
-      year: new Date().getFullYear(), theme: BOOK_THEMES[0]
-    });
+  // ── Add Book Modal Component ──────────────────────────────────────────────────
+function AddBookModal({ categories, onClose, onAdd, initialData }) { // <-- initialData eklendi
+  
+  // Eğer initialData varsa (düzenleme yapıyorsak), mevcut verileri form'a dolduruyoruz
+  const [form, setForm] = useState({
+    title: initialData?.title || '', 
+    author: initialData?.author || '', 
+    category: initialData?.tags?.[0] || categories[0]?.id || '',
+    pages: initialData?.pages || '', 
+    // Sayfa hesabı (progress üzerinden current page bulma)
+    currentPage: initialData ? Math.round((initialData.progress / 100) * initialData.pages) : '', 
+    cover: initialData?.cover || '', 
+    description: initialData?.description || '',
+    year: initialData?.year || new Date().getFullYear(), 
+    theme: BOOK_THEMES.find(t => t.color[0] === initialData?.color?.[0]) || BOOK_THEMES[0]
+  });
 
-    const update = (field, val) => setForm(p => ({ ...p, [field]: val }));
+  const update = (field, val) => setForm(p => ({ ...p, [field]: val }));
 
-    const handleSubmit = () => {
-      if (!form.title.trim() || !form.author.trim() || !form.pages) return;
+  const handleSubmit = () => {
+  if (!form.title.trim() || !form.author.trim() || !form.pages) return;
 
-      // Sayıları güvene alıyoruz (Boş gelseler bile sayı olmalarını garantiliyoruz)
       const totalP = parseInt(form.pages) || 1;
       const currP  = parseInt(form.currentPage) || 0;
       const progress = Math.min(100, Math.max(0, Math.round((currP / totalP) * 100)));
       const pubYear = parseInt(form.year) || new Date().getFullYear();
 
-      // Efe'nin backend'ine gidecek KUSURSUZ VE EKSİKSİZ paket:
-      const newBookPayload = {
-    title: form.title,
-    author: form.author,
-    category: form.category,
-    description: form.description,
-    progress,
-    pages: totalP,
-    year: pubYear,
-    rating: 0,
-    isFavorite: false,   // ← "favorite" değil "isFavorite"
-  };
-      onAdd(newBookPayload);
-      onClose();
+      // Backend'e gidecek EKSİKSİZ paket:
+      const bookPayload = {
+        title: form.title, 
+        author: form.author, 
+        category: form.category,
+        description: form.description, 
+        progress, 
+        pages: totalP,
+        year: pubYear, 
+        rating: initialData?.rating || 0, 
+        isFavorite: initialData?.isFavorite || false,
+        
+        // EKLENEN YENİ ÖZELLİKLER (Renk ve Kapak)
+        cover: form.cover || form.title.substring(0, 2).toUpperCase(),
+        color: form.theme.color,
+        accent: form.theme.accent,
+        spine: form.theme.spine
+      };
+      
+      onAdd(bookPayload);
     };
 
     return (
@@ -335,8 +330,18 @@
 
             <div>
               <label style={labelStyle}>Açıklama (Opsiyonel)</label>
-              <textarea value={form.description} onChange={e => update('description', e.target.value)} placeholder="Kitap hakkında kısa notlar..." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-            </div>
+<textarea
+  value={form.description}
+  onChange={e => update('description', e.target.value.substring(0, 200))}
+  placeholder="Kitap hakkında kısa notlar..."
+  rows={3}
+  maxLength={200}
+  style={{ ...inputStyle, resize: 'vertical' }}
+/>
+{/* Karakter sayacı */}
+<div style={{ textAlign: 'right', fontSize: 11, color: '#55556a', marginTop: 4 }}>
+  {form.description.length}/200
+</div>            </div>
           </div>
 
           <div className="px-5 py-4 border-t flex justify-end gap-3 shrink-0" style={{ borderColor: '#1e1e26' }}>
@@ -389,7 +394,7 @@
   }
 
   // ── BookCard ──────────────────────────────────────────────────────────────────
-  function BookCard({ book, isFavorite, onToggleFavorite, view }) {
+    function BookCard({ book, isFavorite, onToggleFavorite, view, onEdit, onDelete, onRate }) {
     const [hovered, setHovered] = useState(false);
     const [flipped, setFlipped] = useState(false);
 
@@ -540,6 +545,7 @@
 
           {/* BACK */}
           <div
+            // SONDAN 'relative' KELİMESİNİ SİLDİK, BOYUTLAR ARTIK ÖN YÜZLE BİREBİR AYNI!
             className="absolute inset-0 rounded-2xl p-4 flex flex-col justify-between"
             style={{
               backfaceVisibility: "hidden",
@@ -551,22 +557,53 @@
             }}
           >
             <div>
-              <h4 className="text-white font-semibold text-sm mb-1 line-clamp-2">{book.title}</h4>
-              <p className="text-gray-500 text-xs mb-3">{book.author} · {book.year} · {book.pages}p</p>
-              <p className="text-gray-400 text-xs leading-relaxed line-clamp-4">{book.description}</p>
+              {/* BACK yüzündeki ilk <div> — flex-1 ve overflow ekle */}
+<div className="flex-1 overflow-hidden flex flex-col">
+  <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+    <h4 className="text-white font-semibold text-sm mb-1 line-clamp-2 pr-8">{book.title}</h4>
+    <div className="flex gap-2 relative z-10">
+      <button onClick={(e) => { e.stopPropagation(); onEdit(book); }} className="text-gray-400 hover:text-blue-400 transition-colors">
+        <Icon d={icons.edit} size={14} />
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); onDelete(book.id); }} className="text-gray-400 hover:text-red-400 transition-colors">
+        <Icon d={icons.trash} size={14} />
+      </button>
+    </div>
+  </div>
+  <p className="text-gray-500 text-xs mb-2">{book.author} · {book.year} · {book.pages}p</p>
+  {/* Description — flex-1 ile kalan alanı doldurur, overflow ile kesilir */}
+  <p
+    className="text-gray-400 text-xs leading-relaxed flex-1"
+    style={{
+      overflow: 'hidden',
+      display: '-webkit-box',
+      WebkitLineClamp: 5,
+      WebkitBoxOrient: 'vertical',
+      wordBreak: 'break-word',
+      overflowWrap: 'break-word',
+      whiteSpace: 'normal',
+    }}
+  >
+    {(book.description || '').substring(0, 200)}
+  </p>
+</div>
             </div>
-            <div className="flex items-center justify-between">
+            
+            <div className="flex items-center justify-between relative z-10">
+              {/* YILDIZLAR SİSTEMİ */}
               <div className="flex gap-0.5">
                 {[1, 2, 3, 4, 5].map(s => (
-                  <svg key={s} width="12" height="12" viewBox="0 0 24 24"
-                    fill={s <= book.rating ? "#f59e0b" : "none"}
-                    stroke={s <= book.rating ? "#f59e0b" : "#374151"}
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={icons.star} />
-                  </svg>
+                  <button key={s} onClick={(e) => { e.stopPropagation(); onRate(book, s); }} className="transition-transform hover:scale-125">
+                    <svg width="14" height="14" viewBox="0 0 24 24"
+                      fill={s <= (book.rating || 0) ? "#f59e0b" : "none"}
+                      stroke={s <= (book.rating || 0) ? "#f59e0b" : "#374151"}
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={icons.star} />
+                    </svg>
+                  </button>
                 ))}
               </div>
-              <span className="text-xs text-gray-600">Tekrar tıkla</span>
+              <span className="text-xs text-gray-600">Puanla</span>
             </div>
           </div>
         </div>
@@ -621,19 +658,34 @@
     );
   }
 
-  // ── Backend Verisini Frontend Görseline Çevirici ──
-  const mapBackendToFrontendBook = (b) => {
-    const theme = BOOK_THEMES[b.id % BOOK_THEMES.length] || BOOK_THEMES[0];
-    return {
-      ...b,
-      isFavorite: b.favorite, // Backend "favorite" diyor, sen "isFavorite"
-      cover: b.title ? b.title.substring(0, 2).toUpperCase() : "BK",
-      color: theme.color,
-      accent: theme.accent,
-      spine: theme.spine,
-      tags: [b.category || "Genel"]
-    };
+ const mapBackendToFrontendBook = (b) => {
+  const themeIndex = typeof b.id === 'number' ? b.id % BOOK_THEMES.length : 0;
+  
+  // Backend color array olarak döndürüyor mu kontrol et
+  // Eğer color yoksa colorStart/colorEnd'den oluştur
+  let colorArray = null;
+  if (b.color && Array.isArray(b.color) && b.color.length >= 2) {
+    colorArray = b.color;
+  } else if (b.colorStart && b.colorEnd) {
+    colorArray = [b.colorStart, b.colorEnd];
+  } else if (b.colorStart) {
+    colorArray = [b.colorStart, b.colorStart];
+  }
+
+  const theme = colorArray
+    ? { color: colorArray, accent: b.accent || '#c084fc', spine: b.spine || '#6b21a8' }
+    : BOOK_THEMES[themeIndex] || BOOK_THEMES[0];
+
+  return {
+    ...b,
+    isFavorite: b.favorite ?? b.isFavorite ?? false,
+    cover: b.cover || (b.title ? b.title.substring(0, 2).toUpperCase() : 'BK'),
+    color: theme.color,
+    accent: theme.accent,
+    spine: theme.spine,
+    tags: [b.category || 'Genel'],
   };
+};
 
   // ── Main Component ────────────────────────────────────────────────────────────
   export default function Library() {
@@ -647,30 +699,103 @@
     const [showFavOnly,    setShowFavOnly]    = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+    const [editingBook, setEditingBook] = useState(null); // <-- YENİ EKLENDİ
 
+    // ── KİTAP SİL ──
+    const handleDeleteBook = async (id) => {
+      try {
+        await api.delete(`/api/library/${id}`);
+        setBooks(prev => prev.filter(b => b.id !== id));
+      } catch (err) { console.error("Silinemedi:", err); }
+    };
+
+   const handleRateBook = async (book, newRating) => {
+  setBooks(prev => prev.map(b => b.id === book.id ? { ...b, rating: newRating } : b));
+  try {
+    const payload = {
+      title:       book.title,
+      author:      book.author,
+      category:    book.category,
+      description: book.description,
+      progress:    book.progress,
+      pages:       book.pages,
+      year:        book.year,
+      rating:      newRating,
+      favorite:    book.isFavorite ?? false,  // ← boolean, null olmasın
+      cover:       book.cover,
+      // color, accent, spine YOK — backend'e gönderme
+    };
+    await api.put(`/api/library/${book.id}`, payload);
+  } catch (err) {
+    console.error("Puanlanamadı:", err.response?.data || err);
+  }
+};
+
+   // ── YENİ EKLE VEYA GÜNCELLE ──
+const handleSaveBook = async (payload) => {
+  try {
+    // ✅ color/accent/spine'ı ÇIKARMA — backend'e gönder, DB'ye kaydedilsin
+    const { isFavorite, tags, ...rest } = payload;
+    const backendPayload = {
+      ...rest,
+      favorite: isFavorite ?? false,
+    };
+
+    if (editingBook) {
+      const res = await api.put(`/api/library/${editingBook.id}`, backendPayload);
+      setBooks(prev => prev.map(b =>
+        b.id === editingBook.id ? mapBackendToFrontendBook(res.data.data) : b
+      ));
+    } else {
+      const res = await api.post('/api/library', backendPayload);
+      setBooks(prev => [...prev, mapBackendToFrontendBook(res.data.data)]);
+    }
+    setIsAddModalOpen(false);
+    setEditingBook(null);
+  } catch (err) {
+    console.error("Kaydedilemedi:", err.response?.data || err);
+  }
+};
     // ── İlk yükleme: localStorage'dan oku ──────────────────────────────────────
     // ── İlk yükleme: Gerçek veritabanından oku ──
-    useEffect(() => {
-      const fetchBooks = async () => {
-        try {
-          const res = await api.get('/api/library');
-          const data = res.data.data || res.data;
-          
-          const mappedBooks = data.map(mapBackendToFrontendBook);
-          setBooks(mappedBooks);
-          
-          const favIds = new Set(mappedBooks.filter(b => b.isFavorite).map(b => b.id));
-          setFavorites(favIds);
-        } catch (err) {
-          console.error("Kitaplar yüklenemedi:", err);
-        } finally {
-          setLoading(false);
-        }
-      };
+   useEffect(() => {
+  const fetchData = async () => {
+    try {
+      // Kitapları yükle
+      const booksRes = await api.get('/api/library');
+      const data = booksRes.data.data || booksRes.data;
+      const mappedBooks = data.map(mapBackendToFrontendBook);
+      setBooks(mappedBooks);
+      setFavorites(new Set(mappedBooks.filter(b => b.isFavorite).map(b => b.id)));
 
-      fetchBooks();
-      setCategories(loadCategories()); // Kategoriler şimdilik local'de kalabilir
-    }, []);
+      // Kategorileri backend'den yükle
+      const catsRes = await api.get('/api/categories');
+      const cats = catsRes.data.data || catsRes.data;
+      
+      // Hiç kategori yoksa default'ları kaydet
+      if (cats.length === 0) {
+        await api.post('/api/categories/save-all', DEFAULT_CATEGORIES.map(c => ({
+          categoryId: c.id,
+          label: c.label,
+          color: c.color
+        })));
+        setCategories(DEFAULT_CATEGORIES);
+      } else {
+        setCategories(cats.map(c => ({
+          id: c.categoryId,
+          label: c.label,
+          color: c.color,
+          dbId: c.id  // silme için
+        })));
+      }
+    } catch (err) {
+      console.error("Veri yüklenemedi:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, []);
 
     // ── Kitap ekle ──────────────────────────────────────────────────────────────
     // ── Kitap ekle: Backend'e gönder ──
@@ -707,14 +832,21 @@
     };
 
     // ── Kategori kaydet ──────────────────────────────────────────────────────────
-    const handleSaveCategories = useCallback((newCats) => {
-      setCategories(newCats);
-      saveCategories(newCats);
-      // Eğer aktif kategori silindiyse "all"e dön
-      if (!newCats.find(c => c.id === activeCategory)) {
-        setActiveCategory("all");
-      }
-    }, [activeCategory]);
+    const handleSaveCategories = useCallback(async (newCats) => {
+  setCategories(newCats);
+  try {
+    await api.post('/api/categories/save-all', newCats.map(c => ({
+      categoryId: c.id,
+      label: c.label,
+      color: c.color
+    })));
+  } catch (err) {
+    console.error("Kategoriler kaydedilemedi:", err);
+  }
+  if (!newCats.find(c => c.id === activeCategory)) {
+    setActiveCategory("all");
+  }
+}, [activeCategory]);
 
     const allCategories = [{ id: "all", label: "Tümü", color: "#a78bfa" }, ...categories];
 
@@ -954,6 +1086,9 @@
                   <BookCard key={book.id} book={book}
                     isFavorite={favorites.has(book.id)}
                     onToggleFavorite={toggleFavorite}
+                    onEdit={(b) => { setEditingBook(b); setIsAddModalOpen(true); }} // <-- Eklendi
+                    onDelete={handleDeleteBook} // <-- Eklendi
+                    onRate={handleRateBook} // <-- Eklendi
                     view="grid" />
                 ))}
               </div>
@@ -994,8 +1129,9 @@
         {isAddModalOpen && (
           <AddBookModal
             categories={categories}
-            onClose={() => setIsAddModalOpen(false)}
-            onAdd={handleAddBook}
+            initialData={editingBook} // <-- Düzenleme verisini içeri gönderiyoruz
+            onClose={() => { setIsAddModalOpen(false); setEditingBook(null); }}
+            onAdd={handleSaveBook} // <-- Artık handleSaveBook tetiklenecek
           />
         )}
 

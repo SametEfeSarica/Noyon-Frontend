@@ -5,20 +5,23 @@ import { useAuth } from '../context/AuthContext';
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
-  { label: 'Notlar',       endpoint: '/api/notes/trash',              icon: 'fa-note-sticky',   restoreKey: 'title'        },
-  { label: 'Kütüphane',   endpoint: '/api/library_items/trash',       icon: 'fa-book',          restoreKey: 'title'        },
-  { label: 'Abonelikler', endpoint: '/api/subscriptions/trash',       icon: 'fa-credit-card',   restoreKey: 'platformName' },
+  { label: 'Notlar',      endpoint: '/api/notes/trash',         icon: 'fa-note-sticky',  restoreKey: 'title'        },
+  // DÜZELTME 1: library_items yerine library yapıldı
+  { label: 'Kütüphane',   endpoint: '/api/library/trash',       icon: 'fa-book',         restoreKey: 'title'        },
+  { label: 'Abonelikler', endpoint: '/api/subscriptions/trash', icon: 'fa-credit-card',  restoreKey: 'platformName' },
 ];
 
 const getRestoreEndpoint = (tab, id) => {
   if (tab === 'Notlar')       return `/api/notes/${id}/restore`;
-  if (tab === 'Kütüphane')    return `/api/library_items/${id}/restore`;
+  // DÜZELTME 2: library_items yerine library yapıldı
+  if (tab === 'Kütüphane')    return `/api/library/${id}/restore`;
   if (tab === 'Abonelikler')  return `/api/subscriptions/${id}/restore`;
 };
 
 const getPermanentDeleteEndpoint = (tab, id) => {
   if (tab === 'Notlar')       return `/api/notes/${id}/permanent`;
-  if (tab === 'Kütüphane')    return `/api/library_items/${id}/permanent`;
+  // DÜZELTME 3: library_items yerine library yapıldı
+  if (tab === 'Kütüphane')    return `/api/library/${id}/permanent`;
   if (tab === 'Abonelikler')  return `/api/subscriptions/${id}/permanent`;
 };
 
