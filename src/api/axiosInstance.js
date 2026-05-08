@@ -8,7 +8,7 @@ const api = axios.create({
 // İstek Yollayıcı (Interceptor) — Her isteğin kafasına JWT ekler
 api.interceptors.request.use((config) => {
   // DÜZELTME: Token adını hem "token" hem "accessToken" olarak ara
-  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
