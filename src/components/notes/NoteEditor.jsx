@@ -443,23 +443,27 @@ export default function NoteEditor({ note, onSave, onClose }) {
   }, [content]);
 
   // ── Merkezi kaydetme fonksiyonu — tüm alanları birleştirip gönderir
-  const doSave = useCallback((overrides = {}) => {
-    setAutosaveStatus('saving');
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      onSave?.({
-        ...note,
-        title,
-        content,
-        tags,
-        favorite: isFavorited,
-        ...overrides,
-      });
-      setAutosaveStatus('saved');
-      clearTimeout(autosaveTimer.current);
-      autosaveTimer.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
-    }, 800);
-  }, [note, title, content, tags, isFavorited, handwritingBase64, pdfAnnotations, onSave]);
+const doSave = useCallback((overrides = {}) => {
+  setAutosaveStatus('saving');
+  clearTimeout(saveTimer.current);
+  saveTimer.current = setTimeout(() => {
+    onSave?.({
+      ...note,
+      title,
+      content,
+      tags,
+      favorite: isFavorited,
+      handwritingBase64: handwritingBase64 ?? null,
+      pdfAnnotations: typeof pdfAnnotations === 'object'
+        ? JSON.stringify(pdfAnnotations)
+        : (pdfAnnotations ?? null),
+      ...overrides,
+    });
+    setAutosaveStatus('saved');
+    clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
+  }, 800);
+}, [note, title, content, tags, isFavorited, handwritingBase64, pdfAnnotations, onSave]);
 
   // ── Text/title/tags/favori değişince otomatik kaydet
   useEffect(() => {

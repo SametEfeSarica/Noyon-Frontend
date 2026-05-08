@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -43,19 +42,6 @@ const IconTrash = () => (
   </svg>
 );
 
-const IconPencil = () => (
-  <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-  </svg>
-);
-
-const IconCopy = () => (
-  <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-  </svg>
-);
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatRelativeTime(date) {
@@ -75,7 +61,6 @@ function formatRelativeTime(date) {
   return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-// Strip markdown / extra whitespace for preview text
 function stripMarkdown(text = '') {
   return text
     .replace(/#{1,6}\s/g, '')
@@ -91,16 +76,22 @@ function stripMarkdown(text = '') {
 
 function ContextMenu({ x, y, onClose, onFavorite, isFavorited, onDelete }) {
   const items = [
-    { icon: <IconStar filled={isFavorited} />,
-                            label: isFavorited ? 'Favoriden Çıkar' : 'Favoriye Ekle',
-                            action: () => { onFavorite(); onClose(); } },
+    {
+      icon: <IconStar filled={isFavorited} />,
+      label: isFavorited ? 'Favoriden Çıkar' : 'Favoriye Ekle',
+      action: () => { onFavorite(); onClose(); }
+    },
     'divider',
-    { icon: <IconTrash />,  label: 'Sil', danger: true,  action: () => { onDelete?.(); onClose(); } },
+    {
+      icon: <IconTrash />,
+      label: 'Sil',
+      danger: true,
+      action: () => { onDelete?.(); onClose(); }
+    },
   ];
 
   return createPortal(
     <>
-      {/* Invisible overlay to capture outside clicks */}
       <div className="fixed inset-0 z-[998]" onClick={onClose} aria-hidden="true" />
       <div
         style={{ top: y, left: x, position: 'fixed', zIndex: 999 }}
@@ -133,18 +124,6 @@ function ContextMenu({ x, y, onClose, onFavorite, isFavorited, onDelete }) {
     document.body
   );
 }
-// ─── Word count chip ──────────────────────────────────────────────────────────
-
-function WordCountChip({ text }) {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  if (words === 0) return null;
-  return (
-    <span className="flex items-center gap-1 text-[#30304a]">
-      <IconNote />
-      <span>{words} kelime</span>
-    </span>
-  );
-}
 
 // ─── Tag Pill ─────────────────────────────────────────────────────────────────
 
@@ -175,9 +154,89 @@ function FolderBadge({ folder }) {
   );
 }
 
+// ─── Content Preview — çizim / pdf / metin ────────────────────────────────────
+
+function ContentPreview({ handwritingBase64, pdfAnnotations, preview, variant }) {
+  // Çizim notu
+  if (handwritingBase64) {
+    if (variant === 'grid') {
+      return (
+        <div
+          className="relative w-full rounded-xl overflow-hidden border border-[#1e1e2c] bg-[#0d0d14] flex-shrink-0"
+          style={{ height: 90 }}
+        >
+          <img
+            src={handwritingBase64}
+            alt="Çizim önizlemesi"
+            className="w-full h-full object-cover object-top"
+            style={{ opacity: 0.85 }}
+          />
+          <span className="absolute bottom-1.5 right-2 flex items-center gap-1 text-[9px] text-[#7070a0] bg-[#0d0d14]/90 rounded-md px-1.5 py-0.5 border border-[#1e1e2c]">
+            ✏️ Çizim
+          </span>
+        </div>
+      );
+    }
+    // list variant
+    return (
+      <p className="mt-1 truncate text-[11.5px] text-[#505070]">
+        ✏️ Çizim notu
+      </p>
+    );
+  }
+
+  // PDF notu
+  if (pdfAnnotations && pdfAnnotations !== '{}' && pdfAnnotations !== 'null') {
+    if (variant === 'grid') {
+      return (
+        <div
+          className="relative w-full rounded-xl overflow-hidden border border-[#1e2a1e] bg-[#0d140d] flex-shrink-0 flex items-center justify-center"
+          style={{ height: 90 }}
+        >
+          <div className="flex flex-col items-center gap-1.5 opacity-60">
+            <span style={{ fontSize: 28 }}>📄</span>
+            <span className="text-[10px] text-[#4a7a4a] font-medium">PDF Notu</span>
+          </div>
+          <span className="absolute bottom-1.5 right-2 flex items-center gap-1 text-[9px] text-[#4a7a4a] bg-[#0d140d]/90 rounded-md px-1.5 py-0.5 border border-[#1e2a1e]">
+            📄 PDF
+          </span>
+        </div>
+      );
+    }
+    // list variant
+    return (
+      <p className="mt-1 truncate text-[11.5px] text-[#3a5a3a]">
+        📄 PDF notu
+      </p>
+    );
+  }
+
+  // Metin notu
+  if (variant === 'grid') {
+    return preview ? (
+      <p className="text-[12px] font-[420] leading-[1.65] text-[#484860] line-clamp-3 group-hover/card:text-[#585878] transition-colors duration-150">
+        {preview}
+      </p>
+    ) : (
+      <p className="text-[12px] italic text-[#2e2e42] leading-[1.65]">
+        İçerik yok…
+      </p>
+    );
+  }
+
+  // list — metin
+  return preview ? (
+    <p className="mt-1 truncate text-[11.5px] text-[#3a3a52] group-hover/card:text-[#484860] transition-colors duration-150">
+      {preview}
+    </p>
+  ) : null;
+}
+
 // ─── NoteCard ─────────────────────────────────────────────────────────────────
 
 export default function NoteCard({
+  handwritingBase64,
+  pdfAnnotations,
   id,
   title = 'Başlıksız Not',
   content = '',
@@ -186,19 +245,18 @@ export default function NoteCard({
   folder,
   isFavorited: initialFavorited = false,
   updatedAt,
-  path, // Bunu silebilirsiniz artık kullanılmayacak
   accentColor,
   onDelete,
   onFavoriteToggle,
-  onClick, // 1. DÜZELTME: onClick prop'unu buraya ekledik
+  onClick,
   variant = 'grid',
 }) {
   const [favorited, setFavorited] = useState(initialFavorited);
-  const [hovered, setHovered] = useState(false);
-  const [ctx, setCtx] = useState(null);
+  const [hovered, setHovered]     = useState(false);
+  const [ctx, setCtx]             = useState(null);
 
-  const accent = accentColor ?? '#6c6af6';
-  const preview = stripMarkdown(content);
+  const accent    = accentColor ?? '#6c6af6';
+  const preview   = stripMarkdown(content);
   const timeLabel = updatedAt ? formatRelativeTime(updatedAt) : null;
 
   const handleFavorite = useCallback((e) => {
@@ -213,7 +271,10 @@ export default function NoteCard({
 
   const handleContextMenu = useCallback((e) => {
     e.preventDefault();
-    setCtx({ x: Math.min(e.clientX, window.innerWidth - 180), y: Math.min(e.clientY, window.innerHeight - 200) });
+    setCtx({
+      x: Math.min(e.clientX, window.innerWidth - 180),
+      y: Math.min(e.clientY, window.innerHeight - 200),
+    });
   }, []);
 
   const handleDotsClick = useCallback((e) => {
@@ -227,14 +288,14 @@ export default function NoteCard({
   if (variant === 'grid') {
     return (
       <>
-       <div
+        <div
           onClick={onClick}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           onContextMenu={handleContextMenu}
           aria-label={title}
           className={[
-            'cursor-pointer', // Tıklanabilir olduğunu belirtmek için eklendi
+            'cursor-pointer',
             'group/card relative flex flex-col rounded-2xl overflow-hidden',
             'border transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6c6af6]/50',
@@ -243,12 +304,9 @@ export default function NoteCard({
             'hover:shadow-[0_8px_32px_rgba(0,0,0,0.45),0_1px_0_rgba(108,106,246,0.06)_inset]',
             'hover:-translate-y-[2px]',
           ].join(' ')}
-          style={{
-            // Subtle top-edge accent glow on hover
-            '--accent': accent,
-          }}
+          style={{ '--accent': accent }}
         >
-          {/* Top accent line — scales in on hover */}
+          {/* Top accent line */}
           <span
             aria-hidden="true"
             className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl transition-opacity duration-200"
@@ -277,7 +335,7 @@ export default function NoteCard({
                 </h3>
               </div>
 
-              {/* Action cluster — appears on hover */}
+              {/* Action cluster */}
               <div className={['flex flex-shrink-0 items-center gap-1 transition-all duration-150', hovered ? 'opacity-100' : 'opacity-0'].join(' ')}>
                 <button
                   onClick={handleFavorite}
@@ -301,7 +359,6 @@ export default function NoteCard({
                 </button>
               </div>
 
-              {/* Favorited star — always visible when favorited and not hovered */}
               {favorited && !hovered && (
                 <span className="flex-shrink-0 text-amber-400/60 mt-0.5">
                   <IconStar filled />
@@ -309,23 +366,17 @@ export default function NoteCard({
               )}
             </div>
 
-            {/* Content preview */}
-            {preview && (
-              <p className="text-[12px] font-[420] leading-[1.65] text-[#484860] line-clamp-3 group-hover/card:text-[#585878] transition-colors duration-150">
-                {preview}
-              </p>
-            )}
-
-            {!preview && (
-              <p className="text-[12px] italic text-[#2e2e42] leading-[1.65]">
-                İçerik yok…
-              </p>
-            )}
+            {/* ── İçerik Önizlemesi (çizim / pdf / metin) ── */}
+            <ContentPreview
+              handwritingBase64={handwritingBase64}
+              pdfAnnotations={pdfAnnotations}
+              preview={preview}
+              variant="grid"
+            />
           </div>
 
           {/* Footer */}
           <div className="flex items-center justify-between gap-2 border-t border-[#191926] px-4 py-2.5">
-            {/* Tags */}
             <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
               {folder && <FolderBadge folder={folder} />}
               {tags.slice(0, 2).map(tag => <TagPill key={tag} tag={tag} />)}
@@ -333,8 +384,6 @@ export default function NoteCard({
                 <span className="text-[10px] text-[#30304a] flex-shrink-0">+{tags.length - 2}</span>
               )}
             </div>
-
-            {/* Meta */}
             {timeLabel && (
               <div className="flex-shrink-0 flex items-center gap-1 text-[10px] text-[#303048]">
                 <IconClock />
@@ -361,12 +410,13 @@ export default function NoteCard({
   return (
     <>
       <div
-        to={path ?? '#'}
+        onClick={onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onContextMenu={handleContextMenu}
         aria-label={title}
         className={[
+          'cursor-pointer',
           'group/card relative flex items-center gap-3.5 rounded-xl px-4 py-3',
           'border transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6c6af6]/50',
@@ -388,8 +438,10 @@ export default function NoteCard({
 
         {/* Emoji or default icon */}
         {emoji ? (
-          <span className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-[16px] leading-none select-none"
-            style={{ background: `${accent}14`, border: `1px solid ${accent}1a` }}>
+          <span
+            className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-[16px] leading-none select-none"
+            style={{ background: `${accent}14`, border: `1px solid ${accent}1a` }}
+          >
             {emoji}
           </span>
         ) : (
@@ -406,11 +458,14 @@ export default function NoteCard({
             </h3>
             {folder && <FolderBadge folder={folder} />}
           </div>
-          {preview && (
-            <p className="mt-1 truncate text-[11.5px] text-[#3a3a52] group-hover/card:text-[#484860] transition-colors duration-150">
-              {preview}
-            </p>
-          )}
+
+          {/* ── İçerik Önizlemesi (çizim / pdf / metin) ── */}
+          <ContentPreview
+            handwritingBase64={handwritingBase64}
+            pdfAnnotations={pdfAnnotations}
+            preview={preview}
+            variant="list"
+          />
         </div>
 
         {/* Tags */}
@@ -450,7 +505,6 @@ export default function NoteCard({
           </button>
         </div>
 
-        {/* Always-on favorite dot when not hovered */}
         {favorited && !hovered && (
           <span className="flex-shrink-0 text-amber-400/50 ml-1">
             <IconStar filled />

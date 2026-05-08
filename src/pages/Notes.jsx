@@ -157,19 +157,36 @@ export default function Notes() {
     });
   }, [activeFolder]);
 
-  const handleSaveNote = useCallback(async (updatedNoteData) => {
-    try {
-      if (selectedNote.id === 'new') {
-        const createdNote = await noteApi.create(updatedNoteData);
-        setSelectedNote(createdNote); 
-      } else {
-        await noteApi.update(selectedNote.id, updatedNoteData);
-      }
-      fetchNotes(); 
-    } catch (err) {
-      console.error("Kaydetme hatası", err);
+const handleSaveNote = useCallback(async (updatedNoteData) => {
+  try {
+    const payload = {
+      title:             updatedNoteData.title || 'İsimsiz Not',
+      content:           updatedNoteData.content || '',
+      tags:              updatedNoteData.tags || [],
+      favorite:          updatedNoteData.favorite || false,
+      pinned:            updatedNoteData.pinned || false,
+      color:             updatedNoteData.color || null,
+      folderId:          updatedNoteData.folderId || null,
+      imageUrl:          updatedNoteData.imageUrl || null,
+      pdfUrl:            updatedNoteData.pdfUrl || null,
+      handwritingBase64: updatedNoteData.handwritingBase64 || null,
+      pdfAnnotations:    updatedNoteData.pdfAnnotations || null,
+    };
+
+    if (selectedNote.id === 'new') {
+      const createdNote = await noteApi.create(payload);
+      // ✅ selectedNote'u güncelle ki bir sonraki kayıtta ID doğru gitsin
+      setSelectedNote(createdNote);
+    } else {
+      const updatedNote = await noteApi.update(selectedNote.id, payload);
+      // ✅ selectedNote'u güncel veriyle güncelle
+      setSelectedNote(updatedNote);
     }
-  }, [selectedNote, fetchNotes]);
+    fetchNotes();
+  } catch (err) {
+    console.error("Kaydetme hatası", err);
+  }
+}, [selectedNote, fetchNotes]);
 
   const handleFavoriteToggle = useCallback(async (id, next) => {
     const noteToUpdate = notes.find(n => n.id === id);
@@ -311,6 +328,9 @@ export default function Notes() {
                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
                   >
                    <NoteCard
+                      note={note}
+                      handwritingBase64={note.handwritingBase64}
+                      
                       id={note.id}
                       title={note.title}
                       content={note.content?.replace(/<[^>]+>/g, '') ?? ''}
