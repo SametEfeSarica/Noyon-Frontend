@@ -113,8 +113,7 @@ function ToolbarBtn({ onClick, active, title, children }) {
       title={title}
       className={[
         'flex h-7 w-7 items-center justify-center rounded-md',
-        'transition-all duration-150 ease-out',
-        'focus-visible:outline-none',
+        'transition-all duration-150 ease-out focus-visible:outline-none',
         active
           ? 'bg-[#6c6af6]/20 text-[#9d9cf8]'
           : 'text-[#888898] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
@@ -149,8 +148,7 @@ function FontSizeSelect({ value, onChange }) {
       <button
         onMouseDown={(e) => { e.preventDefault(); setOpen(p => !p); }}
         className={[
-          'flex h-7 items-center gap-1 rounded-md px-2',
-          'text-[12px] font-medium transition-all duration-150',
+          'flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium transition-all duration-150',
           open ? 'bg-[#1e1e28] text-[#d0d0da]' : 'text-[#a0a0b0] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
           'focus-visible:outline-none',
         ].join(' ')}
@@ -158,7 +156,6 @@ function FontSizeSelect({ value, onChange }) {
         <span className="w-4 text-center">{value}</span>
         <IconChevronDown />
       </button>
-
       {open && (
         <div className="absolute top-full left-0 mt-1.5 z-50 w-16 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl overflow-hidden">
           <div className="py-1 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:bg-[#2a2a38] [&::-webkit-scrollbar-track]:bg-transparent">
@@ -184,10 +181,11 @@ function FontSizeSelect({ value, onChange }) {
 // ─── Color Picker ─────────────────────────────────────────────────────────────
 
 const TEXT_COLORS = [
-  { label: 'Default', value: '#d0d0da' }, { label: 'Muted', value: '#888898' }, { label: 'Purple', value: '#9d9cf8' },
-  { label: 'Blue', value: '#60a5fa' }, { label: 'Cyan', value: '#22d3ee' }, { label: 'Green', value: '#4ade80' },
-  { label: 'Yellow', value: '#fbbf24' }, { label: 'Orange', value: '#fb923c' }, { label: 'Red', value: '#f87171' },
-  { label: 'Pink', value: '#f472b6' },
+  { label: 'Default', value: '#d0d0da' }, { label: 'Muted', value: '#888898' },
+  { label: 'Purple', value: '#9d9cf8' }, { label: 'Blue', value: '#60a5fa' },
+  { label: 'Cyan', value: '#22d3ee' }, { label: 'Green', value: '#4ade80' },
+  { label: 'Yellow', value: '#fbbf24' }, { label: 'Orange', value: '#fb923c' },
+  { label: 'Red', value: '#f87171' }, { label: 'Pink', value: '#f472b6' },
 ];
 
 const HIGHLIGHT_COLORS = [
@@ -221,7 +219,6 @@ function ColorPicker({ textColor, onTextColor, highlightColor, onHighlight }) {
         <span className="text-[11px] font-bold leading-none">A</span>
         <span className="h-[3px] w-4 rounded-full transition-colors" style={{ backgroundColor: textColor }} />
       </button>
-
       {open && (
         <div className="absolute top-full left-0 mt-1.5 z-50 w-52 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl p-3">
           <div className="flex gap-1 mb-3 bg-[#0e0e14] rounded-md p-0.5 border border-[#1e1e28]">
@@ -238,7 +235,6 @@ function ColorPicker({ textColor, onTextColor, highlightColor, onHighlight }) {
               </button>
             ))}
           </div>
-
           {tab === 'text' && (
             <div className="grid grid-cols-5 gap-1.5">
               {TEXT_COLORS.map(c => (
@@ -255,7 +251,6 @@ function ColorPicker({ textColor, onTextColor, highlightColor, onHighlight }) {
               ))}
             </div>
           )}
-
           {tab === 'highlight' && (
             <div className="grid grid-cols-3 gap-1.5">
               {HIGHLIGHT_COLORS.map(c => (
@@ -306,8 +301,7 @@ function HeadingSelect({ value, onChange }) {
       <button
         onMouseDown={(e) => { e.preventDefault(); setOpen(p => !p); }}
         className={[
-          'flex h-7 items-center gap-1.5 rounded-md px-2.5',
-          'text-[12px] font-medium transition-all duration-150',
+          'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition-all duration-150',
           open ? 'bg-[#1e1e28] text-[#d0d0da]' : 'text-[#a0a0b0] hover:bg-[#1e1e28] hover:text-[#d0d0da]',
           'focus-visible:outline-none',
         ].join(' ')}
@@ -315,7 +309,6 @@ function HeadingSelect({ value, onChange }) {
         <span>{current.label}</span>
         <IconChevronDown />
       </button>
-
       {open && (
         <div className="absolute top-full left-0 mt-1.5 z-50 w-32 rounded-lg border border-[#2a2a38] bg-[#16161f] shadow-xl py-1 overflow-hidden">
           {HEADING_OPTIONS.map(opt => (
@@ -343,10 +336,10 @@ function HeadingSelect({ value, onChange }) {
 
 function AutosaveIndicator({ status }) {
   const config = {
-    idle: { text: '', show: false },
+    idle:   { text: '', show: false },
     saving: { text: 'Kaydediliyor...', show: true, color: '#888898' },
-    saved: { text: 'Kaydedildi', show: true, color: '#4ade80' },
-    error: { text: 'Hata', show: true, color: '#f87171' },
+    saved:  { text: 'Kaydedildi', show: true, color: '#4ade80' },
+    error:  { text: 'Hata', show: true, color: '#f87171' },
   }[status] || { show: false };
 
   return (
@@ -400,17 +393,25 @@ function TagInput({ tags, onChange }) {
 
 export default function NoteEditor({ note, onSave, onClose }) {
   // ── Temel State
-  const [title, setTitle]           = useState(note?.title || '');
-  const [content, setContent]       = useState(note?.content || '');
-  const [tags, setTags]             = useState(note?.tags || []);
+  const [title, setTitle]             = useState(note?.title || '');
+  const [content, setContent]         = useState(note?.content || '');
+  const [tags, setTags]               = useState(note?.tags || []);
   const [isFavorited, setIsFavorited] = useState(note?.favorite || note?.favorited || false);
   const [autosaveStatus, setAutosaveStatus] = useState('idle');
-  const [editorMode, setEditorMode] = useState('text'); // 'text' | 'draw' | 'pdf'
 
-  // ── Çizim & PDF Annotation State (yeni)
-  // handwritingBase64: DrawMode canvas'ının base64 PNG'si
+  // ── Modu note.noteType'a göre belirle (Sorun 2'nin çözümü)
+  const [editorMode, setEditorMode] = useState(() => {
+    if (note?.noteType === 'draw') return 'draw';
+    if (note?.noteType === 'pdf')  return 'pdf';
+    if (note?.handwritingBase64)   return 'draw';
+    if (note?.pdfUrl)              return 'pdf';
+    return 'text';
+  });
+
+  // ── Çizim & PDF State
   const [handwritingBase64, setHandwritingBase64] = useState(note?.handwritingBase64 || null);
-  // pdfAnnotations: { [pageNumber]: base64DataUrl } — JSON olarak saklanır
+
+  // pdfAnnotations: { [pageNumber]: base64DataUrl }
   const [pdfAnnotations, setPdfAnnotations] = useState(() => {
     if (!note?.pdfAnnotations) return {};
     if (typeof note.pdfAnnotations === 'string') {
@@ -419,20 +420,23 @@ export default function NoteEditor({ note, onSave, onClose }) {
     return note.pdfAnnotations;
   });
 
+  // ── PDF'in base64 hali — pdfUrl alanında saklanır (Sorun 1'in çözümü)
+  const [pdfBase64, setPdfBase64] = useState(note?.pdfUrl || null);
+
   // ── Formatlama State
-  const [fontSize, setFontSize]         = useState('16');
-  const [textColor, setTextColor]       = useState('#d0d0da');
-  const [highlightColor, setHighlightColor] = useState('transparent');
-  const [headingType, setHeadingType]   = useState('p');
+  const [fontSize, setFontSize]               = useState('16');
+  const [textColor, setTextColor]             = useState('#d0d0da');
+  const [highlightColor, setHighlightColor]   = useState('transparent');
+  const [headingType, setHeadingType]         = useState('p');
 
   // ── Sayaç State
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
 
-  const editorRef    = useRef(null);
-  const titleRef     = useRef(null);
+  const editorRef     = useRef(null);
+  const titleRef      = useRef(null);
   const autosaveTimer = useRef(null);
-  const saveTimer    = useRef(null);
+  const saveTimer     = useRef(null);
 
   // ── Word/char count
   useEffect(() => {
@@ -442,28 +446,39 @@ export default function NoteEditor({ note, onSave, onClose }) {
     setCharCount(textOnly.length);
   }, [content]);
 
-  // ── Merkezi kaydetme fonksiyonu — tüm alanları birleştirip gönderir
-const doSave = useCallback((overrides = {}) => {
-  setAutosaveStatus('saving');
-  clearTimeout(saveTimer.current);
-  saveTimer.current = setTimeout(() => {
-    onSave?.({
-      ...note,
-      title,
-      content,
-      tags,
-      favorite: isFavorited,
-      handwritingBase64: handwritingBase64 ?? null,
-      pdfAnnotations: typeof pdfAnnotations === 'object'
-        ? JSON.stringify(pdfAnnotations)
-        : (pdfAnnotations ?? null),
-      ...overrides,
-    });
-    setAutosaveStatus('saved');
-    clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
-  }, 800);
-}, [note, title, content, tags, isFavorited, handwritingBase64, pdfAnnotations, onSave]);
+  // ── Merkezi kaydetme fonksiyonu
+  const doSave = useCallback((overrides = {}) => {
+    setAutosaveStatus('saving');
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      // noteType'ı belirle
+      const currentNoteType = overrides.noteType ?? (
+        editorMode === 'draw' ? 'draw' :
+        editorMode === 'pdf'  ? 'pdf'  : 'text'
+      );
+
+      onSave?.({
+        ...note,
+        title,
+        content,
+        tags,
+        favorite: isFavorited,
+        noteType: currentNoteType,
+        handwritingBase64: handwritingBase64 ?? null,
+        // pdfUrl: PDF'in base64 içeriği
+        pdfUrl: overrides.pdfUrl !== undefined ? overrides.pdfUrl : (pdfBase64 ?? null),
+        // pdfAnnotations: sayfaların çizim verileri
+        pdfAnnotations: overrides.pdfAnnotations !== undefined
+          ? overrides.pdfAnnotations
+          : (typeof pdfAnnotations === 'object' ? JSON.stringify(pdfAnnotations) : (pdfAnnotations ?? null)),
+        ...overrides,
+      });
+
+      setAutosaveStatus('saved');
+      clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
+    }, 800);
+  }, [note, title, content, tags, isFavorited, handwritingBase64, pdfAnnotations, pdfBase64, editorMode, onSave]);
 
   // ── Text/title/tags/favori değişince otomatik kaydet
   useEffect(() => {
@@ -476,17 +491,23 @@ const doSave = useCallback((overrides = {}) => {
     };
   }, [title, content, tags, isFavorited]);
 
-  // ── DrawMode'dan gelen çizimi state'e yaz + kaydet
+  // ── DrawMode'dan gelen çizimi kaydet
   const handleDrawingChange = useCallback((base64) => {
     setHandwritingBase64(base64);
-    doSave({ handwritingBase64: base64 });
+    doSave({ handwritingBase64: base64, noteType: 'draw' });
   }, [doSave]);
 
-  // ── PdfMode'dan gelen annotation'ları state'e yaz + kaydet
-  const handleAnnotationChange = useCallback((annotations) => {
+  // ── PdfMode'dan gelen annotation + pdfBase64'ü kaydet (Sorun 1'in çözümü)
+  const handleAnnotationChange = useCallback((annotations, newPdfBase64) => {
     setPdfAnnotations(annotations);
-    doSave({ pdfAnnotations: JSON.stringify(annotations) });
-  }, [doSave]);
+    if (newPdfBase64) setPdfBase64(newPdfBase64);
+
+    doSave({
+      pdfAnnotations: JSON.stringify(annotations),
+      pdfUrl: newPdfBase64 ?? pdfBase64,
+      noteType: 'pdf',
+    });
+  }, [doSave, pdfBase64]);
 
   // ── execCommand helpers
   const exec = useCallback((cmd, value = null) => {
@@ -515,7 +536,7 @@ const doSave = useCallback((overrides = {}) => {
   return (
     <div className="flex flex-col h-full bg-[#111119] transition-all duration-200">
 
-      {/* ── HEADER ───────────────────────────────────────────────────────────── */}
+      {/* ── HEADER ── */}
       <div className="flex flex-col flex-shrink-0 bg-[#0a0a10] border-b border-[#1a1a24] shadow-sm z-10">
 
         {/* Top Row */}
@@ -550,8 +571,8 @@ const doSave = useCallback((overrides = {}) => {
             <div className="flex items-center rounded-lg bg-[#14141e] p-1 border border-[#1e1e2c]">
               {[
                 { key: 'text', icon: <IconTextMode />, title: 'Metin Modu' },
-                { key: 'draw', icon: <IconPencil />, title: 'Çizim Modu' },
-                { key: 'pdf',  icon: <IconPDF />,    title: 'PDF Modu' }
+                { key: 'draw', icon: <IconPencil />,   title: 'Çizim Modu' },
+                { key: 'pdf',  icon: <IconPDF />,      title: 'PDF Modu' },
               ].map(({ key, icon, title }) => (
                 <button
                   key={key}
@@ -561,7 +582,7 @@ const doSave = useCallback((overrides = {}) => {
                     'flex h-7 w-9 items-center justify-center rounded-md transition-all duration-200',
                     editorMode === key
                       ? 'bg-[#6c6af6] text-white shadow-md'
-                      : 'text-[#666678] hover:text-[#b0b0c0] hover:bg-[#1e1e2e]'
+                      : 'text-[#666678] hover:text-[#b0b0c0] hover:bg-[#1e1e2e]',
                   ].join(' ')}
                 >
                   {icon}
@@ -579,7 +600,7 @@ const doSave = useCallback((overrides = {}) => {
                 'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200',
                 isFavorited
                   ? 'text-[#fbbf24] bg-[#fbbf24]/10'
-                  : 'text-[#666678] hover:bg-[#1e1e2e] hover:text-[#b0b0c0]'
+                  : 'text-[#666678] hover:bg-[#1e1e2e] hover:text-[#b0b0c0]',
               ].join(' ')}
             >
               <IconStar />
@@ -592,42 +613,30 @@ const doSave = useCallback((overrides = {}) => {
           <div className="flex items-center gap-1.5 flex-wrap px-4 sm:px-6 py-2 bg-[#0d0d16] border-t border-[#1a1a24]">
             <ToolbarBtn onClick={() => exec('undo')} title="Geri al (Ctrl+Z)"><IconUndo /></ToolbarBtn>
             <ToolbarBtn onClick={() => exec('redo')} title="Yinele (Ctrl+Y)"><IconRedo /></ToolbarBtn>
-
             <ToolbarDivider />
-
             <HeadingSelect value={headingType} onChange={applyHeading} />
-
             <ToolbarDivider />
-
             <FontSizeSelect value={fontSize} onChange={(s) => { setFontSize(s); exec('fontSize', '7'); }} />
-
             <ToolbarDivider />
-
             <div className="flex items-center gap-0.5 rounded-lg bg-[#14141e] border border-[#1e1e2c] p-0.5">
               <ToolbarBtn onClick={() => exec('bold')} active={queryCmd('bold')} title="Kalın (Ctrl+B)"><IconBold /></ToolbarBtn>
               <ToolbarBtn onClick={() => exec('italic')} active={queryCmd('italic')} title="İtalik (Ctrl+I)"><IconItalic /></ToolbarBtn>
               <ToolbarBtn onClick={() => exec('underline')} active={queryCmd('underline')} title="Altı çizili (Ctrl+U)"><IconUnderline /></ToolbarBtn>
               <ToolbarBtn onClick={() => exec('strikeThrough')} active={queryCmd('strikeThrough')} title="Üstü çizili"><IconStrikethrough /></ToolbarBtn>
             </div>
-
             <ToolbarDivider />
-
             <ColorPicker
               textColor={textColor}
               onTextColor={(c) => { setTextColor(c); exec('foreColor', c); }}
               highlightColor={highlightColor}
               onHighlight={(c) => { setHighlightColor(c); exec('hiliteColor', c); }}
             />
-
             <ToolbarDivider />
-
             <div className="flex items-center gap-0.5 rounded-lg bg-[#14141e] border border-[#1e1e2c] p-0.5">
               <ToolbarBtn onClick={() => exec('justifyLeft')} title="Sola hizala"><IconAlignLeft /></ToolbarBtn>
               <ToolbarBtn onClick={() => exec('justifyCenter')} title="Ortala"><IconAlignCenter /></ToolbarBtn>
             </div>
-
             <ToolbarDivider />
-
             <div className="flex items-center gap-0.5 rounded-lg bg-[#14141e] border border-[#1e1e2c] p-0.5">
               <ToolbarBtn onClick={() => exec('insertUnorderedList')} active={queryCmd('insertUnorderedList')} title="Madde listesi"><IconList /></ToolbarBtn>
               <ToolbarBtn onClick={() => exec('insertOrderedList')} active={queryCmd('insertOrderedList')} title="Sıralı liste"><IconOrderedList /></ToolbarBtn>
@@ -636,12 +645,9 @@ const doSave = useCallback((overrides = {}) => {
         )}
       </div>
 
-      {/* ── Editor Body ──────────────────────────────────────────────────────── */}
+      {/* ── Editor Body ── */}
 
-      {/* 
-        DrawMode ve PdfMode her zaman DOM'da tutulur (display:none ile gizlenir).
-        Böylece mod değiştirildiğinde canvas içeriği sıfırlanmaz.
-      */}
+      {/* DrawMode ve PdfMode her zaman DOM'da — display:none ile içerik sıfırlanmasın */}
       <div
         className="flex-1 overflow-hidden"
         style={{ display: editorMode === 'draw' ? 'flex' : 'none', flexDirection: 'column' }}
@@ -656,8 +662,10 @@ const doSave = useCallback((overrides = {}) => {
         className="flex-1 overflow-hidden"
         style={{ display: editorMode === 'pdf' ? 'flex' : 'none', flexDirection: 'column' }}
       >
+        {/* initialPdfBase64: kayıtlı PDF'i tekrar yüklemek için (Sorun 1'in çözümü) */}
         <PdfMode
           initialAnnotations={pdfAnnotations}
+          initialPdfBase64={pdfBase64}
           onAnnotationChange={handleAnnotationChange}
         />
       </div>
@@ -665,18 +673,14 @@ const doSave = useCallback((overrides = {}) => {
       {editorMode === 'text' && (
         <div className="flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2a2a36]">
           <div className="mx-auto w-full max-w-3xl px-8 py-8 md:px-12">
-
             <p className="mb-4 text-[11px] font-medium uppercase tracking-widest text-[#333344] select-none">
               {today}
             </p>
-
             <div className="mb-6 flex items-center gap-2">
               <span className="flex-shrink-0 text-[#333344]">#</span>
               <TagInput tags={tags} onChange={setTags} />
             </div>
-
             <div className="mb-6 h-px bg-[#1a1a24]" />
-
             <div
               ref={editorRef}
               contentEditable="true"
@@ -703,18 +707,14 @@ const doSave = useCallback((overrides = {}) => {
                 '[&_strong]:text-white [&_strong]:font-semibold',
                 'focus:outline-none',
               ].join(' ')}
-              style={{
-                fontSize: `${fontSize}px`,
-                color: textColor,
-                caretColor: '#6c6af6',
-              }}
+              style={{ fontSize: `${fontSize}px`, color: textColor, caretColor: '#6c6af6' }}
             />
             <div className="h-16" />
           </div>
         </div>
       )}
 
-      {/* ── Status Bar ───────────────────────────────────────────────────────── */}
+      {/* ── Status Bar ── */}
       <div className="flex flex-shrink-0 items-center justify-between border-t border-[#1a1a24] bg-[#0d0d16] px-6 py-1.5">
         <div className="flex items-center gap-4 text-[11px] text-[#333344] select-none">
           <span>{wordCount} kelime</span>

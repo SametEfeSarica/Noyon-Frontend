@@ -327,9 +327,11 @@ const handleSaveNote = useCallback(async (updatedNoteData) => {
                     }}
                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
                   >
-                   <NoteCard
+                    <NoteCard
                       note={note}
                       handwritingBase64={note.handwritingBase64}
+                      pdfUrl={note.pdfUrl}
+                      noteType={note.noteType}
                       
                       id={note.id}
                       title={note.title}

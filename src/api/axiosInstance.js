@@ -1,89 +1,104 @@
 import axios from 'axios';
-
+ 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
-
-// İstek Yollayıcı (Interceptor) — Her isteğin kafasına JWT ekler
+ 
+// ─── İstek Interceptor — Her isteğe JWT ekler ────────────────────────────────
 api.interceptors.request.use((config) => {
-  // DÜZELTME: Token adını hem "token" hem "accessToken" olarak ara
-const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
-  
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+ 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   } else {
-    console.warn("DİKKAT: Gönderilecek bir Token bulunamadı!");
+    console.warn('DİKKAT: Gönderilecek bir Token bulunamadı!');
   }
+ 
   return config;
 });
-
+ 
+// ─── Cevap Interceptor — 401/403 yönetimi ────────────────────────────────────
 let isRefreshing = false;
-let failedQueue = [];
-
+let failedQueue  = [];
+ 
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);
-    else prom.resolve(token);
+    else       prom.resolve(token);
   });
   failedQueue = [];
 };
-
-// Cevap Yakalayıcı — 401 (Yetkisiz) dönerse token'ı çaktırmadan yeniler
+ 
+const clearSessionAndRedirect = () => {
+  localStorage.clear();
+  window.location.href = '/login';
+};
+ 
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const originalRequest  = error.config;
+    const status           = error.response?.status;
+ 
+    // ── 403: token geçersiz/süresi dolmuş → refresh dene, olmazsa çıkış ──────
+    // ── 401: yetkisiz → aynı akış ────────────────────────────────────────────
+    if ((status === 401 || status === 403) && !originalRequest._retry) {
+ 
+      // Refresh zaten devam ediyorsa kuyruğa al
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then((token) => {
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return api(originalRequest);
-        });
+        }).catch((err) => Promise.reject(err));
       }
-
+ 
       originalRequest._retry = true;
-      isRefreshing = true;
-
+      isRefreshing            = true;
+ 
       const refreshToken = localStorage.getItem('refreshToken');
+ 
       if (!refreshToken) {
-        // Refresh token da yoksa mecburen çıkış yap ve login'e at
-        localStorage.clear();
-        window.location.href = '/login';
+        // Refresh token da yoksa oturum açık değil
+        processQueue(error, null);
+        isRefreshing = false;
+        clearSessionAndRedirect();
         return Promise.reject(error);
       }
-
+ 
       try {
         const response = await axios.post(
           `${import.meta.env.VITE_API_BASE_URL}/api/auth/refresh`,
           null,
           { headers: { 'X-Refresh-Token': refreshToken } }
         );
-
+ 
         const { accessToken, refreshToken: newRefreshToken } = response.data;
-        // DÜZELTME: Sistemi garantiye almak için token'ı iki isimle de kaydet
-        localStorage.setItem('token', accessToken); 
-        localStorage.setItem('accessToken', accessToken);
+ 
+        localStorage.setItem('token',        accessToken);
+        localStorage.setItem('accessToken',  accessToken);
         localStorage.setItem('refreshToken', newRefreshToken);
-
+ 
         processQueue(null, accessToken);
+ 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
+ 
       } catch (refreshError) {
+        // Refresh da başarısız → oturumu tamamen kapat
         processQueue(refreshError, null);
-        localStorage.clear();
-        window.location.href = '/login';
-        return Promise.reject(refreshError); 
+        clearSessionAndRedirect();
+        return Promise.reject(refreshError);
+ 
       } finally {
         isRefreshing = false;
       }
     }
-
+ 
     return Promise.reject(error);
   }
 );
-
+ 
 export default api;

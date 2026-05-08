@@ -156,7 +156,7 @@ function FolderBadge({ folder }) {
 
 // ─── Content Preview — çizim / pdf / metin ────────────────────────────────────
 
-function ContentPreview({ handwritingBase64, pdfAnnotations, preview, variant }) {
+function ContentPreview({ handwritingBase64, pdfAnnotations, pdfUrl, noteType, preview, variant }) {
   // Çizim notu
   if (handwritingBase64) {
     if (variant === 'grid') {
@@ -186,7 +186,7 @@ function ContentPreview({ handwritingBase64, pdfAnnotations, preview, variant })
   }
 
   // PDF notu
-  if (pdfAnnotations && pdfAnnotations !== '{}' && pdfAnnotations !== 'null') {
+  if (noteType === 'pdf' || pdfUrl || (pdfAnnotations && pdfAnnotations !== '{}' && pdfAnnotations !== 'null')) {
     if (variant === 'grid') {
       return (
         <div
@@ -237,6 +237,8 @@ function ContentPreview({ handwritingBase64, pdfAnnotations, preview, variant })
 export default function NoteCard({
   handwritingBase64,
   pdfAnnotations,
+  pdfUrl,
+  noteType,
   id,
   title = 'Başlıksız Not',
   content = '',
@@ -370,6 +372,8 @@ export default function NoteCard({
             <ContentPreview
               handwritingBase64={handwritingBase64}
               pdfAnnotations={pdfAnnotations}
+              pdfUrl={pdfUrl}
+              noteType={noteType}
               preview={preview}
               variant="grid"
             />
@@ -463,6 +467,8 @@ export default function NoteCard({
           <ContentPreview
             handwritingBase64={handwritingBase64}
             pdfAnnotations={pdfAnnotations}
+            pdfUrl={pdfUrl}
+            noteType={noteType}
             preview={preview}
             variant="list"
           />

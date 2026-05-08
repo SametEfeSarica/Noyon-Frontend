@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import api from "../api/axiosInstance";
 
 // ─── SVG Icon Primitive ───────────────────────────────────────────────────────
 const IC = ({ d, size = 16, fill = "none", className = "", strokeWidth = 1.8 }) => (
@@ -16,20 +17,14 @@ const P = {
   user:       ["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"],
   mail:       ["M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z", "M22 6l-10 7L2 6"],
   lock:       ["M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z", "M7 11V7a5 5 0 0 1 10 0v4"],
-  bell:       ["M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9", "M13.73 21a2 2 0 0 1-3.46 0"],
-  palette:    "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 8 6.5 8 8 8.67 8 9.5 7.33 11 6.5 11zm3-4C8.67 7 8 6.33 8 5.5S8.67 4 9.5 4s1.5.67 1.5 1.5S10.33 7 9.5 7zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 4 14.5 4s1.5.67 1.5 1.5S15.33 7 14.5 7zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 8 17.5 8s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z",
   shield:     ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"],
   eye:        ["M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
   eyeOff:     ["M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24", "M1 1l22 22"],
   check:      "M20 6L9 17l-5-5",
   x:          "M18 6L6 18M6 6l12 12",
-  chevRight:  "M9 18l6-6-6-6",
   trash:      ["M3 6h18", "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"],
   globe:      ["M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z","M2 12h20","M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"],
-  moon:       "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z",
-  zap:        "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
-  info:       ["M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z","M12 8v4","M12 16h.01"],
-  logout:     ["M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4","M16 17l5-5-5-5","M21 12H9"],
+  loader:     ["M12 2v4", "M12 18v4", "M4.93 4.93l2.83 2.83", "M16.24 16.24l2.83 2.83", "M2 12h4", "M18 12h4", "M4.93 19.07l2.83-2.83", "M16.24 7.76l2.83-2.83"],
 };
 
 // ─── Toast Notification ───────────────────────────────────────────────────────
@@ -129,82 +124,7 @@ function Input({ value, onChange, type = "text", placeholder, prefix, suffix, di
   );
 }
 
-// ─── Toggle Switch ────────────────────────────────────────────────────────────
-function Toggle({ checked, onChange, color = "#6c6af6" }) {
-  return (
-    <button
-      onClick={() => onChange(!checked)}
-      role="switch"
-      aria-checked={checked}
-      className="relative flex-shrink-0 rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6c6af6]/60"
-      style={{
-        width: 36, height: 20,
-        background: checked ? color : "#1e1e2c",
-      }}>
-      <span
-        className="absolute top-[3px] rounded-full bg-white shadow-sm transition-all duration-200"
-        style={{
-          width: 14, height: 14,
-          left: checked ? "calc(100% - 17px)" : "3px",
-        }}
-      />
-    </button>
-  );
-}
-
-// ─── Notification Row ─────────────────────────────────────────────────────────
-function NotifRow({ label, description, checked, onChange, color }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-3 border-b last:border-0"
-      style={{ borderColor: "#1e1e2c" }}>
-      <div className="min-w-0">
-        <p className="text-sm text-gray-300 font-medium">{label}</p>
-        {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
-      </div>
-      <Toggle checked={checked} onChange={onChange} color={color} />
-    </div>
-  );
-}
-
-// ─── Theme Option ─────────────────────────────────────────────────────────────
-function ThemeOption({ id, label, active, onClick, preview }) {
-  return (
-    <button
-      onClick={() => onClick(id)}
-      className="relative flex flex-col items-center gap-2 rounded-xl p-3 transition-all duration-150 group"
-      style={{
-        background: active ? "#161622" : "#09090b",
-        border: `1px solid ${active ? "#6c6af666" : "#1e1e2c"}`,
-        boxShadow: active ? "0 0 16px #6c6af622" : "none",
-      }}>
-      <div className="w-full h-12 rounded-lg overflow-hidden" style={{ ...preview }}>
-        <div className="w-full h-full flex items-end p-1.5 gap-1">
-          <div className="h-1.5 flex-1 rounded-full opacity-60" style={{ background: "#fff" }} />
-          <div className="h-1.5 w-6 rounded-full opacity-30" style={{ background: "#fff" }} />
-        </div>
-      </div>
-      <span className="text-xs font-medium" style={{ color: active ? "#d0d0e0" : "#6b7280" }}>
-        {label}
-      </span>
-      {active && (
-        <div className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center"
-          style={{ background: "#6c6af6" }}>
-          <IC d={P.check} size={8} className="text-white" strokeWidth={3} />
-        </div>
-      )}
-    </button>
-  );
-}
-
-const ACCENTS = [
-  { id: "violet", color: "#6c6af6", label: "Violet" },
-  { id: "indigo", color: "#4f46e5", label: "Indigo" },
-  { id: "sky",    color: "#0ea5e9", label: "Sky" },
-  { id: "emerald",color: "#10b981", label: "Emerald" },
-  { id: "amber",  color: "#f59e0b", label: "Amber" },
-  { id: "rose",   color: "#f43f5e", label: "Rose" },
-];
-
+// ─── Password Strength ────────────────────────────────────────────────────────
 function PasswordStrength({ password }) {
   const score = (() => {
     if (!password) return 0;
@@ -237,21 +157,92 @@ function PasswordStrength({ password }) {
   );
 }
 
+// ─── Confirm Modal ────────────────────────────────────────────────────────────
+function ConfirmModal({ onConfirm, onCancel, loading }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+      <div className="rounded-2xl p-6 max-w-sm w-full mx-4"
+        style={{ background: "#111119", border: "1px solid #ef444433" }}>
+        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
+          style={{ background: "#ef444418", color: "#ef4444" }}>
+          <IC d={P.trash} size={20} />
+        </div>
+        <h3 className="text-base font-semibold text-white text-center mb-2">Hesabı Sil</h3>
+        <p className="text-sm text-gray-400 text-center mb-6 leading-relaxed">
+          Tüm verileriniz kalıcı olarak silinecek. Bu işlem <span className="text-red-400 font-medium">geri alınamaz</span>.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} disabled={loading}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: "#1e1e2c", color: "#9ca3af", border: "1px solid #2a2a38" }}>
+            İptal
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            style={{ background: "#ef4444", color: "#fff" }}>
+            {loading ? <Spinner size={14} /> : <IC d={P.trash} size={14} />}
+            Evet, Sil
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+function Spinner({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2} strokeLinecap="round"
+      style={{ animation: "spin 0.8s linear infinite" }}>
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+    </svg>
+  );
+}
+
+// ─── Save Button ──────────────────────────────────────────────────────────────
+function SaveButton({ label = "Kaydet", onClick, accentColor = "#6c6af6", loading = false }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick} disabled={loading}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150"
+      style={{
+        background: hov ? accentColor : accentColor + "22",
+        color: hov ? "#fff" : accentColor,
+        border: `1px solid ${accentColor}44`,
+        transform: hov ? "translateY(-1px)" : "none",
+        opacity: loading ? 0.7 : 1,
+        cursor: loading ? "not-allowed" : "pointer",
+      }}>
+      {loading ? <Spinner size={13} /> : <IC d={P.check} size={13} strokeWidth={2.5} />}
+      {label}
+    </button>
+  );
+}
+
 const SECTIONS = [
-  { id: "profile",       label: "Profil",       icon: P.user,    color: "#a78bfa" },
-  { id: "account",       label: "Hesap",        icon: P.shield,  color: "#60a5fa" },
+  { id: "profile", label: "Profil",  icon: P.user,   color: "#a78bfa" },
+  { id: "account", label: "Hesap",   icon: P.shield, color: "#60a5fa" },
 ];
 
+const accentColor = "#6c6af6";
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function Settings() {
   const [activeSection, setActiveSection] = useState("profile");
   const [toast, setToast] = useState(null);
   const [mounted, setMounted] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Profile
-  const [displayName, setDisplayName] = useState("User");
-  const [email, setEmail] = useState("user@noyon.app");
-  const [bio, setBio] = useState("Noyon kullanıcısı.");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [bio, setBio] = useState("");
   const [website, setWebsite] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Password
   const [currentPw, setCurrentPw] = useState("");
@@ -260,101 +251,144 @@ export default function Settings() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [savingPw, setSavingPw] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
-  // Notifications
-  const [notifs, setNotifs] = useState({
-    taskReminders:  true,
-    weeklyDigest:   true,
-    mentions:       true,
-    systemUpdates:  false,
-    marketing:      false,
-    mobileEnabled:  true,
-    emailEnabled:   true,
-  });
-
-  // Appearance
-  const [theme, setTheme] = useState("dark");
-  const [accent, setAccent] = useState("violet");
-  const [compactMode, setCompactMode] = useState(false);
-  const [animations, setAnimations] = useState(true);
-  const [sidebarBlur, setSidebarBlur] = useState(true);
-
-  // Privacy
-  const [privacy, setPrivacy] = useState({
-    publicProfile:  false,
-    showActivity:   true,
-    showStreak:     true,
-    analyticsOpt:   false,
-  });
-
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    fetchProfile();
+  }, []);
 
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
   }, []);
 
-  const handleSaveProfile = () => {
-    if (!displayName.trim()) { showToast("İsim boş olamaz.", "error"); return; }
-    if (!email.includes("@")) { showToast("Geçerli bir e-posta girin.", "error"); return; }
-    showToast("Profil güncellendi.");
+  // ─── API Calls ──────────────────────────────────────────────────────────────
+
+  const fetchProfile = async () => {
+    try {
+      setProfileLoading(true);
+      const res = await api.get("/api/users/profile");
+      const data = res.data.data; // ApiResponse wrapper: { data: UserResponse }
+      setDisplayName(data.displayName ?? "");
+      setEmail(data.email ?? "");
+      setBio(data.bio ?? "");
+      setWebsite(data.website ?? "");
+    } catch (err) {
+      showToast("Profil bilgileri alınamadı.", "error");
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
-  const handleChangePassword = () => {
+  const handleSaveProfile = async () => {
+    if (!displayName.trim()) { showToast("İsim boş olamaz.", "error"); return; }
+    if (!email.includes("@")) { showToast("Geçerli bir e-posta girin.", "error"); return; }
+    try {
+      setSavingProfile(true);
+      await api.put("/api/users/profile", {
+        displayName: displayName.trim(),
+        email: email.trim(),
+        bio: bio.trim(),
+        website: website.trim(),
+      });
+      showToast("Profil güncellendi.");
+    } catch (err) {
+      const msg = err.response?.data?.message ?? "Profil güncellenemedi.";
+      showToast(msg, "error");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
     if (!currentPw) { showToast("Mevcut şifrenizi girin.", "error"); return; }
     if (newPw.length < 8) { showToast("Şifre en az 8 karakter olmalı.", "error"); return; }
     if (newPw !== confirmPw) { showToast("Şifreler eşleşmiyor.", "error"); return; }
-    setCurrentPw(""); setNewPw(""); setConfirmPw("");
-    showToast("Şifre değiştirildi.");
+    try {
+      setSavingPw(true);
+      await api.post("/api/users/change-password", {
+        currentPassword: currentPw,
+        newPassword: newPw,
+      });
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+      showToast("Şifre değiştirildi.");
+    } catch (err) {
+      const msg = err.response?.data?.message ?? "Şifre değiştirilemedi.";
+      showToast(msg, "error");
+    } finally {
+      setSavingPw(false);
+    }
   };
 
-  const handleSaveNotifs = () => showToast("Bildirim tercihleri kaydedildi.");
-  const handleSaveAppearance = () => showToast("Görünüm ayarları uygulandı.");
-  const handleSavePrivacy = () => showToast("Gizlilik ayarları güncellendi.");
+  const handleDeleteAccount = async () => {
+    try {
+      setDeletingAccount(true);
+      await api.delete("/api/users/me");
+      localStorage.clear();
+      window.location.href = "/login";
+    } catch (err) {
+      const msg = err.response?.data?.message ?? "Hesap silinemedi.";
+      showToast(msg, "error");
+      setShowDeleteModal(false);
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
 
-  const accentColor = ACCENTS.find(a => a.id === accent)?.color ?? "#6c6af6";
-
+  // ─── Render Sections ────────────────────────────────────────────────────────
   const renderSection = () => {
     switch (activeSection) {
       case "profile": return (
         <div className="flex flex-col gap-5">
-          <SectionCard title="Kişisel Bilgiler" description="Sistemde nasıl göründüğünüzü ayarlayın." icon={P.user} iconColor="#a78bfa">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Görünen İsim">
-                <Input value={displayName} onChange={e => setDisplayName(e.target.value)}
-                  placeholder="İsminiz"
-                  prefix={<IC d={P.user} size={14} className="text-gray-500" />} />
-              </Field>
-              <Field label="E-posta Adresi">
-                <Input value={email} onChange={e => setEmail(e.target.value)}
-                  type="email" placeholder="ornek@mail.com" autoComplete="email"
-                  prefix={<IC d={P.mail} size={14} className="text-gray-500" />} />
-              </Field>
-              <Field label="Hakkında" hint="Kısa bir biyografi yazabilirsiniz.">
-                <textarea
-                  value={bio} onChange={e => setBio(e.target.value)}
-                  rows={2} placeholder="Kendinizden bahsedin..."
-                  className="w-full rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 resize-none focus:outline-none transition-all duration-150"
-                  style={{ background: "#161622", border: "1px solid #1e1e2c",
-                    fontFamily: "inherit" }}
-                  onFocus={e => { e.currentTarget.style.borderColor = "#6c6af644"; e.currentTarget.style.boxShadow = "0 0 0 3px #6c6af612"; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = "#1e1e2c"; e.currentTarget.style.boxShadow = "none"; }} />
-              </Field>
-              <Field label="Web Sitesi">
-                <Input value={website} onChange={e => setWebsite(e.target.value)}
-                  placeholder="siteniz.com"
-                  prefix={<IC d={P.globe} size={14} className="text-gray-500" />} />
-              </Field>
-            </div>
-            <div className="mt-5 flex items-center justify-end gap-2 pt-4 border-t" style={{ borderColor: "#1e1e2c" }}>
-              <SaveButton onClick={handleSaveProfile} accentColor={accentColor} />
-            </div>
+          <SectionCard title="Kişisel Bilgiler" description="Sistemde nasıl göründüğünüzü ayarlayın."
+            icon={P.user} iconColor="#a78bfa">
+            {profileLoading ? (
+              <div className="flex items-center justify-center py-10 text-gray-500 gap-3">
+                <Spinner size={18} />
+                <span className="text-sm">Profil yükleniyor…</span>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Görünen İsim">
+                    <Input value={displayName} onChange={e => setDisplayName(e.target.value)}
+                      placeholder="İsminiz"
+                      prefix={<IC d={P.user} size={14} className="text-gray-500" />} />
+                  </Field>
+                  <Field label="E-posta Adresi">
+                    <Input value={email} onChange={e => setEmail(e.target.value)}
+                      type="email" placeholder="ornek@mail.com" autoComplete="email"
+                      prefix={<IC d={P.mail} size={14} className="text-gray-500" />} />
+                  </Field>
+                  <Field label="Hakkında" hint="Kısa bir biyografi yazabilirsiniz.">
+                    <textarea
+                      value={bio} onChange={e => setBio(e.target.value)}
+                      rows={2} placeholder="Kendinizden bahsedin..."
+                      className="w-full rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 resize-none focus:outline-none transition-all duration-150"
+                      style={{ background: "#161622", border: "1px solid #1e1e2c", fontFamily: "inherit" }}
+                      onFocus={e => { e.currentTarget.style.borderColor = "#6c6af644"; e.currentTarget.style.boxShadow = "0 0 0 3px #6c6af612"; }}
+                      onBlur={e => { e.currentTarget.style.borderColor = "#1e1e2c"; e.currentTarget.style.boxShadow = "none"; }} />
+                  </Field>
+                  <Field label="Web Sitesi">
+                    <Input value={website} onChange={e => setWebsite(e.target.value)}
+                      placeholder="siteniz.com"
+                      prefix={<IC d={P.globe} size={14} className="text-gray-500" />} />
+                  </Field>
+                </div>
+                <div className="mt-5 flex items-center justify-end gap-2 pt-4 border-t" style={{ borderColor: "#1e1e2c" }}>
+                  <SaveButton onClick={handleSaveProfile} accentColor={accentColor} loading={savingProfile} />
+                </div>
+              </>
+            )}
           </SectionCard>
         </div>
       );
 
       case "account": return (
         <div className="flex flex-col gap-5">
-          <SectionCard title="Şifre Değiştir" description="Hesabınızı güvende tutmak için şifrenizi güncelleyin." icon={P.lock} iconColor="#60a5fa">
+          <SectionCard title="Şifre Değiştir" description="Hesabınızı güvende tutmak için şifrenizi güncelleyin."
+            icon={P.lock} iconColor="#60a5fa">
             <div className="flex flex-col gap-4 max-w-md">
               <Field label="Mevcut Şifre">
                 <Input value={currentPw} onChange={e => setCurrentPw(e.target.value)}
@@ -380,7 +414,8 @@ export default function Settings() {
               <Field label="Yeni Şifre (Tekrar)">
                 <Input value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
                   type={showConfirm ? "text" : "password"} placeholder="••••••••"
-                  prefix={<IC d={P.check} size={14} className={confirmPw && confirmPw === newPw ? "text-emerald-500" : "text-gray-500"} />}
+                  prefix={<IC d={P.check} size={14}
+                    className={confirmPw && confirmPw === newPw ? "text-emerald-500" : "text-gray-500"} />}
                   suffix={
                     <button onClick={() => setShowConfirm(v => !v)} className="text-gray-500 hover:text-gray-400">
                       <IC d={showConfirm ? P.eyeOff : P.eye} size={14} />
@@ -388,18 +423,22 @@ export default function Settings() {
                   } />
               </Field>
               <div className="pt-2 flex justify-end">
-                <SaveButton label="Şifreyi Güncelle" onClick={handleChangePassword} accentColor={accentColor} />
+                <SaveButton label="Şifreyi Güncelle" onClick={handleChangePassword}
+                  accentColor={accentColor} loading={savingPw} />
               </div>
             </div>
           </SectionCard>
 
-          <SectionCard title="Tehlikeli Bölge" description="Geri alınamaz hesap işlemleri." icon={P.trash} iconColor="#ef4444">
-            <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-red-500/20" style={{ background: '#110909' }}>
+          <SectionCard title="Tehlikeli Bölge" description="Geri alınamaz hesap işlemleri."
+            icon={P.trash} iconColor="#ef4444">
+            <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-red-500/20"
+              style={{ background: '#110909' }}>
               <div>
                 <p className="text-sm font-medium text-gray-300">Hesabı Sil</p>
                 <p className="text-xs text-gray-500 mt-0.5">Tüm verilerinizi kalıcı olarak siler. Geri alınamaz.</p>
               </div>
               <button
+                onClick={() => setShowDeleteModal(true)}
                 className="flex-shrink-0 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors"
                 style={{ background: "#ef444422", color: "#ef4444", border: "1px solid #ef444433" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#ef444433"}
@@ -408,69 +447,6 @@ export default function Settings() {
               </button>
             </div>
           </SectionCard>
-        </div>
-      );
-
-      case "notifications": return (
-        <div className="flex flex-col gap-5">
-          <SectionCard title="Uygulama İçi Bildirimler" description="Noyon içinde göreceğiniz uyarıları ayarlayın." icon={P.bell} iconColor="#f59e0b">
-            <NotifRow label="Görev Hatırlatıcıları" description="Yaklaşan ve geciken görevler için uyarılar." checked={notifs.taskReminders} color="#f59e0b" onChange={v => setNotifs(p => ({ ...p, taskReminders: v }))} />
-            <NotifRow label="Haftalık Özet" description="Her pazartesi haftanızın özeti." checked={notifs.weeklyDigest} color="#f59e0b" onChange={v => setNotifs(p => ({ ...p, weeklyDigest: v }))} />
-          </SectionCard>
-          <div className="flex justify-end">
-            <SaveButton label="Tercihleri Kaydet" onClick={handleSaveNotifs} accentColor={accentColor} />
-          </div>
-        </div>
-      );
-
-      case "appearance": return (
-        <div className="flex flex-col gap-5">
-          <SectionCard title="Tema" description="Görsel temayı seçin." icon={P.moon} iconColor="#f472b6">
-            <div className="grid grid-cols-3 gap-3">
-              <ThemeOption id="dark" label="Noyon Siyahı" active={theme === "dark"} onClick={setTheme} preview={{ background: "linear-gradient(135deg, #09090b, #111119)" }} />
-              <ThemeOption id="midnight" label="Gece" active={theme === "midnight"} onClick={setTheme} preview={{ background: "linear-gradient(135deg, #050510, #0d0d1a)" }} />
-              <ThemeOption id="light" label="Açık" active={theme === "light"} onClick={setTheme} preview={{ background: "linear-gradient(135deg, #f5f5f5, #e8e8ee)" }} />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Vurgu Rengi" description="Aktif öğeler için kullanılacak ana renk." icon={P.palette} iconColor="#f472b6">
-            <div className="flex flex-wrap gap-3">
-              {ACCENTS.map(a => (
-                <button key={a.id} onClick={() => setAccent(a.id)} title={a.label}
-                  className="relative w-8 h-8 rounded-full transition-all duration-150"
-                  style={{ background: a.color, boxShadow: accent === a.id ? `0 0 0 2px #09090b, 0 0 0 4px ${a.color}` : "none", transform: accent === a.id ? "scale(1.15)" : "scale(1)" }}>
-                  {accent === a.id && <span className="absolute inset-0 flex items-center justify-center"><IC d={P.check} size={12} className="text-white" strokeWidth={3} /></span>}
-                </button>
-              ))}
-            </div>
-          </SectionCard>
-
-          <div className="flex justify-end">
-            <SaveButton label="Görünümü Uygula" onClick={handleSaveAppearance} accentColor={accentColor} />
-          </div>
-        </div>
-      );
-
-      case "privacy": return (
-        <div className="flex flex-col gap-5">
-          <SectionCard title="Veri İndirme" description="Tüm verilerinizin bir kopyasını bilgisayarınıza indirin." icon={P.logout} iconColor="#34d399">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm text-gray-300">Tüm verileri dışa aktar</p>
-                <p className="text-xs text-gray-500 mt-0.5">Notlar, görevler, abonelikler — ZIP arşivi olarak.</p>
-              </div>
-              <button
-                className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors"
-                style={{ background: "#34d39922", color: "#34d399", border: "1px solid #34d39933" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#34d39933"}
-                onMouseLeave={e => e.currentTarget.style.background = "#34d39922"}>
-                <IC d={P.logout} size={12} /> ZIP İndir
-              </button>
-            </div>
-          </SectionCard>
-          <div className="flex justify-end">
-            <SaveButton label="Gizliliği Kaydet" onClick={handleSavePrivacy} accentColor={accentColor} />
-          </div>
         </div>
       );
 
@@ -483,6 +459,7 @@ export default function Settings() {
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .fade-up { animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both; }
         .d1 { animation-delay: 0.04s; } .d2 { animation-delay: 0.10s; }
       `}</style>
@@ -501,10 +478,16 @@ export default function Settings() {
                 return (
                   <button key={s.id} onClick={() => setActiveSection(s.id)}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left whitespace-nowrap lg:whitespace-normal transition-colors flex-shrink-0 lg:flex-shrink"
-                    style={{ background: active ? "#111119" : "transparent", border: `1px solid ${active ? "#1e1e2c" : "transparent"}`, color: active ? "#e0e0ea" : "#606070" }}
+                    style={{
+                      background: active ? "#111119" : "transparent",
+                      border: `1px solid ${active ? "#1e1e2c" : "transparent"}`,
+                      color: active ? "#e0e0ea" : "#606070"
+                    }}
                     onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "#111119"; e.currentTarget.style.color = "#b0b0c0"; } }}
                     onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#606070"; } }}>
-                    <span className="flex-shrink-0" style={{ color: active ? s.color : "currentColor" }}><IC d={s.icon} size={14} /></span>
+                    <span className="flex-shrink-0" style={{ color: active ? s.color : "currentColor" }}>
+                      <IC d={s.icon} size={14} />
+                    </span>
                     <span className="text-[13px] font-[450] leading-none">{s.label}</span>
                   </button>
                 );
@@ -519,19 +502,16 @@ export default function Settings() {
           </main>
         </div>
       </div>
-      {toast && <Toast message={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
-    </div>
-  );
-}
 
-function SaveButton({ label = "Kaydet", onClick, accentColor = "#6c6af6" }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150"
-      style={{ background: hov ? accentColor : accentColor + "22", color: hov ? "#fff" : accentColor, border: `1px solid ${accentColor}44`, transform: hov ? "translateY(-1px)" : "none" }}>
-      <IC d={P.check} size={13} strokeWidth={2.5} />
-      {label}
-    </button>
+      {toast && <Toast message={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+
+      {showDeleteModal && (
+        <ConfirmModal
+          onConfirm={handleDeleteAccount}
+          onCancel={() => setShowDeleteModal(false)}
+          loading={deletingAccount}
+        />
+      )}
+    </div>
   );
 }

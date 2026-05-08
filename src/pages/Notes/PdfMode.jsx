@@ -8,9 +8,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-// ─────────────────────────────────────────────────────────────
-// SABİTLER
-// ─────────────────────────────────────────────────────────────
 const PDF_WIDTH = 794;
 
 const COLORS = [
@@ -41,12 +38,8 @@ const TOOLS = {
       ctx.lineJoin = 'bevel';
     },
   },
-  arrow: {
-    label: 'Ok', icon: '➡️',
-  },
-  text: {
-    label: 'Metin', icon: '🔤',
-  },
+  arrow: { label: 'Ok', icon: '➡️' },
+  text:  { label: 'Metin', icon: '🔤' },
   eraser: {
     label: 'Silgi', icon: '⬜',
     setup: (ctx, _c, size) => {
@@ -62,9 +55,6 @@ const TOOLS = {
 
 const MAX_HISTORY = 30;
 
-// ─────────────────────────────────────────────────────────────
-// YARDIMCI FONKSİYONLAR
-// ─────────────────────────────────────────────────────────────
 function getPointerPos(e, canvas) {
   const rect = canvas.getBoundingClientRect();
   const src  = e.touches ? e.touches[0] : e;
@@ -86,14 +76,8 @@ function drawArrow(ctx, x1, y1, x2, y2, color, size) {
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(x2, y2);
-  ctx.lineTo(
-    x2 - headLen * Math.cos(angle - Math.PI / 6),
-    y2 - headLen * Math.sin(angle - Math.PI / 6),
-  );
-  ctx.lineTo(
-    x2 - headLen * Math.cos(angle + Math.PI / 6),
-    y2 - headLen * Math.sin(angle + Math.PI / 6),
-  );
+  ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
   ctx.closePath();
   ctx.fill();
 }
@@ -101,48 +85,64 @@ function drawArrow(ctx, x1, y1, x2, y2, color, size) {
 // ─────────────────────────────────────────────────────────────
 // ANA BİLEŞEN
 // ─────────────────────────────────────────────────────────────
-export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
-  const [file,       setFile]       = useState(null);
-  const [fileName,   setFileName]   = useState('');
+export default function PdfMode({ initialAnnotations, initialPdfBase64, onAnnotationChange }) {
+  // ── PDF State ──
+  // file: react-pdf'e verilen kaynak (base64 string veya File objesi)
+  const [file,       setFile]       = useState(initialPdfBase64 ?? null);
+  const [pdfBase64,  setPdfBase64]  = useState(initialPdfBase64 ?? null);
+  const [fileName,   setFileName]   = useState(initialPdfBase64 ? 'Kayıtlı PDF' : '');
   const [numPages,   setNumPages]   = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
-  const [pdfReady,   setPdfReady]   = useState(false);
+  const [pdfReady,   setPdfReady]   = useState(!!initialPdfBase64);
   const [pageHeight, setPageHeight] = useState(1123);
 
   const pageAnnotations = useRef(
     initialAnnotations ? { ...initialAnnotations } : {}
   );
 
+  // ── Çizim State ──
   const [tool,       setTool]      = useState('pen');
   const [color,      setColor]     = useState('#ef4444');
   const [strokeSize, setSize]      = useState(3);
   const [hlOpacity,  setHlOpacity] = useState(0.4);
   const [canUndo,    setCanUndo]   = useState(false);
   const [canRedo,    setCanRedo]   = useState(false);
-
   const [textInput,  setTextInput] = useState({ visible: false, x: 0, y: 0, value: '' });
 
-  const arrowStart = useRef(null);
+  const arrowStart  = useRef(null);
   const canvasRef   = useRef(null);
   const historyRef  = useRef({});
   const redoRef     = useRef({});
   const isDrawing   = useRef(false);
   const lastPts     = useRef([]);
 
-  // ── initialAnnotations değişince ref'i güncelle
+  // ── initialAnnotations değişince ref'i güncelle ──
   useEffect(() => {
     if (initialAnnotations) {
       pageAnnotations.current = { ...initialAnnotations };
     }
   }, [initialAnnotations]);
 
-  // ── Üste bildir
-  const notifyChange = useCallback(() => {
-    if (!onAnnotationChange) return;
-    onAnnotationChange({ ...pageAnnotations.current });
-  }, [onAnnotationChange]);
+  // ── initialPdfBase64 gelince file'ı güncelle ──
+  useEffect(() => {
+    if (initialPdfBase64 && !file) {
+      setFile(initialPdfBase64);
+      setPdfBase64(initialPdfBase64);
+      setFileName('Kayıtlı PDF');
+      setPdfReady(true);
+    }
+  }, [initialPdfBase64]);
 
-  // ─── Sayfa yükleme
+  // ── Üste bildir: hem annotations hem pdfBase64 gönder ──
+  const notifyChange = useCallback((currentPdfBase64) => {
+    if (!onAnnotationChange) return;
+    onAnnotationChange(
+      { ...pageAnnotations.current },
+      currentPdfBase64 ?? pdfBase64
+    );
+  }, [onAnnotationChange, pdfBase64]);
+
+  // ── Sayfa yükleme ──
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
     setPageNumber(1);
@@ -160,7 +160,7 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, pdfReady]);
 
-  // ─── Canvas boyutlandırma
+  // ── Canvas boyutlandırma ──
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -175,7 +175,7 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
     }
   }, [pageHeight, pageNumber]);
 
-  // ─── History
+  // ── History ──
   function getPageHistory() { return historyRef.current[pageNumber] ?? (historyRef.current[pageNumber] = []); }
   function getPageRedo()    { return redoRef.current[pageNumber]    ?? (redoRef.current[pageNumber]    = []); }
 
@@ -224,7 +224,7 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
     pageAnnotations.current[pageNumber] = prev;
     setCanUndo(hist.length > 0);
     setCanRedo(true);
-    setTimeout(notifyChange, 50);
+    setTimeout(() => notifyChange(), 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, notifyChange]);
 
@@ -243,7 +243,7 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
     pageAnnotations.current[pageNumber] = next;
     setCanUndo(true);
     setCanRedo(redo.length > 0);
-    setTimeout(notifyChange, 50);
+    setTimeout(() => notifyChange(), 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, notifyChange]);
 
@@ -256,7 +256,7 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
     notifyChange();
   }, [saveSnapshot, pageNumber, notifyChange]);
 
-  // ─── Çizim
+  // ── Çizim ──
   const startDraw = useCallback((e) => {
     e.preventDefault();
     const canvas = canvasRef.current;
@@ -278,10 +278,7 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
     lastPts.current   = [pos];
 
     const ctx = canvas.getContext('2d');
-    // Setup SADECE burada çağrılır
     TOOLS[tool].setup(ctx, color, strokeSize, hlOpacity);
-
-    // Başlangıç noktası
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
     ctx.lineTo(pos.x, pos.y);
@@ -313,11 +310,8 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
     }
 
     if (!isDrawing.current) return;
-
     const ctx = canvas.getContext('2d');
     lastPts.current.push(pos);
-
-    // ctx ayarlarını tekrar setup etme — başlangıçta zaten ayarlandı
     const pts = lastPts.current;
     ctx.beginPath();
     if (pts.length >= 3) {
@@ -339,7 +333,6 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, color, strokeSize]);
 
-  // ── Çizim bitince kaydet & üste ilet
   const endDraw = useCallback((e) => {
     if (e) e.preventDefault();
     const canvas = canvasRef.current;
@@ -356,7 +349,6 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
 
     isDrawing.current = false;
     lastPts.current   = [];
-
     const ctx = canvas.getContext('2d');
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -394,16 +386,27 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
     setTextInput(t => ({ ...t, visible: false, value: '' }));
   }, [textInput, color, strokeSize, saveSnapshot, pageNumber, notifyChange]);
 
+  // ── PDF Dosyası Yükleme — base64'e çevirip kaydet ──
   const onFileChange = (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    setFile(f);
+
     setFileName(f.name);
     setPageNumber(1);
     setPdfReady(false);
     pageAnnotations.current = {};
     historyRef.current      = {};
     redoRef.current         = {};
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const base64 = evt.target.result; // "data:application/pdf;base64,..."
+      setPdfBase64(base64);
+      setFile(base64); // react-pdf base64 string'i kabul eder
+      // PDF yüklenince hemen üste bildir (annotations henüz boş, ama pdfBase64 var)
+      onAnnotationChange?.({}, base64);
+    };
+    reader.readAsDataURL(f);
   };
 
   return (
@@ -425,7 +428,6 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
           background: '#1d4ed8', color: '#fff',
           fontSize: 13, fontWeight: 600,
           border: '1px solid #2563eb',
-          transition: 'background 0.15s',
         }}>
           📄 PDF Yükle
           <input type="file" accept="application/pdf" onChange={onFileChange} style={{ display: 'none' }} />
@@ -635,7 +637,6 @@ export default function PdfMode({ initialAnnotations, onAnnotationChange }) {
   );
 }
 
-// ─── Küçük yardımcı bileşenler ───────────────────────────────
 function NavBtn({ children, onClick, disabled }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
@@ -644,7 +645,6 @@ function NavBtn({ children, onClick, disabled }) {
       cursor: disabled ? 'not-allowed' : 'pointer',
       fontSize: 18, lineHeight: 1, display: 'flex',
       alignItems: 'center', justifyContent: 'center',
-      transition: 'color 0.15s',
     }}>{children}</button>
   );
 }

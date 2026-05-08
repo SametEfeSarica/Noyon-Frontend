@@ -110,48 +110,23 @@ const IC = {
   ),
 };
 
-// ─── localStorage helpers ─────────────────────────────────────────────────────
-// ÖNEMLİ DEĞİŞİKLİK: Kullanıcıya özgü key kullanıyoruz.
-// Çıkış yapıldığında token silinir, giriş yapılınca yeni token'a göre
-// doğru etkinlikler yüklenir — karışma ve kaybolma sorunu ortadan kalkar.
-const getLS_KEY = () => {
-  try {
-    const token =
-      localStorage.getItem('token') ||
-      localStorage.getItem('authToken') ||
-      localStorage.getItem('access_token') ||
-      'guest';
-    // Token'ın ilk 20 karakterinden alfanümerik bir anahtar türet
-    const userKey = token.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '_');
-    return `calendar_manual_events_${userKey}`;
-  } catch {
-    return 'calendar_manual_events_guest';
-  }
-};
-
-const loadManualEvents = () => {
-  try {
-    const saved = localStorage.getItem(getLS_KEY());
-    return saved ? JSON.parse(saved) : [];
-  } catch { return []; }
-};
-
-const saveManualEvents = (events) => {
-  try {
-    localStorage.setItem(getLS_KEY(), JSON.stringify(events));
-  } catch (e) {
-    console.warn('localStorage yazılamadı:', e);
-  }
-};
-
 // ─── Date helpers ─────────────────────────────────────────────────────────────
-const generateId = () => `ev_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-
 const toLocalDateStr = (date) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+};
+
+// Backend'den gelen LocalDateTime string'ini (YYYY-MM-DDTHH:mm:ss) tarih string'ine dönüştür
+const toDateStr = (localDateTime) => {
+  if (!localDateTime) return null;
+  return localDateTime.split('T')[0];
+};
+
+// Frontend'den backend'e gönderilecek LocalDateTime formatını oluştur
+const toLocalDateTime = (dateStr) => {
+  return `${dateStr}T00:00:00`;
 };
 
 const parseDateStr = (dateStr) => {
@@ -181,6 +156,18 @@ const isSameDay = (a, b) =>
   a.getDate()     === b.getDate();
 
 const isToday = (year, month, day) => isSameDay(new Date(year, month, day), new Date());
+
+// ─── Backend yanıtını takvim event formatına dönüştür ─────────────────────────
+const mapApiCalendarEvent = (item) => ({
+  id:       item.id,
+  title:    item.title,
+  type:     item.category || 'note',
+  date:     toDateStr(item.eventDate),
+  priority: item.priority ? item.priority.toLowerCase() : null,
+  subtitle: 'Takvim Etkinliği',
+  color:    item.color || null,
+  isManual: true,
+});
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = ({ w = '100%', h = 14, r = 6 }) => (
@@ -363,7 +350,7 @@ const PanelEmpty = ({ message }) => (
 
 const PanelEventCard = memo(({ event, delay, onDelete }) => {
   const cfg      = EVENT_TYPES[event.type] || EVENT_TYPES.task;
-  const isManual = String(event.id).startsWith('ev_') || event.isManual;
+  const isManual = event.isManual;
 
   return (
     <div className="cal-sidebar-item" style={{
@@ -402,13 +389,21 @@ const PanelEventCard = memo(({ event, delay, onDelete }) => {
 
 // ─── Event Modal ──────────────────────────────────────────────────────────────
 const EventModal = ({ date, onClose, onSave }) => {
-  const [form, setForm] = useState({ title: '', type: 'task', priority: 'medium', note: '' });
+  const [form,   setForm]   = useState({ title: '', type: 'task', priority: 'medium', note: '' });
+  const [saving, setSaving] = useState(false);
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const handleSave = () => {
-    if (!form.title.trim()) return;
-    onSave({ id: generateId(), ...form, date: toLocalDateStr(date), isManual: true });
-    onClose();
+  const handleSave = async () => {
+    if (!form.title.trim() || saving) return;
+    setSaving(true);
+    try {
+      await onSave({ ...form, date: toLocalDateStr(date) });
+      onClose();
+    } catch {
+      // hata handleAddEvent içinde zaten loglanıyor
+    } finally {
+      setSaving(false);
+    }
   };
 
   const LabelS = ({ children }) => (
@@ -480,8 +475,8 @@ const EventModal = ({ date, onClose, onSave }) => {
           <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #252530', background: 'transparent', color: '#9090a0', cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: FONT }}>
             İptal
           </button>
-          <button onClick={handleSave} disabled={!form.title.trim()} style={{ padding: '7px 18px', borderRadius: 8, border: 'none', background: form.title.trim() ? '#6c6af6' : '#252530', color: form.title.trim() ? '#fff' : '#45455a', cursor: form.title.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, fontFamily: FONT }}>
-            Kaydet
+          <button onClick={handleSave} disabled={!form.title.trim() || saving} style={{ padding: '7px 18px', borderRadius: 8, border: 'none', background: form.title.trim() && !saving ? '#6c6af6' : '#252530', color: form.title.trim() && !saving ? '#fff' : '#45455a', cursor: form.title.trim() && !saving ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, fontFamily: FONT, minWidth: 72 }}>
+            {saving ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
         </div>
       </div>
@@ -499,9 +494,7 @@ export default function Calendar() {
   const [curMonth,      setCurMonth]   = useState(today.getMonth());
   const [loading,       setLoading]    = useState(true);
   const [apiEvents,     setApiEvents]  = useState([]);
-  // ÖNEMLİ: useState başlatıcısı component mount'ta bir kez çalışır.
-  // Kullanıcıya özgü key ile localStorage'dan yükle.
-  const [manualEvents,  setManualEvents] = useState(() => loadManualEvents());
+  const [manualEvents,  setManualEvents] = useState([]);
   const [selectedDate,  setSelected]   = useState(today);
   const [showModal,     setShowModal]  = useState(false);
   const [modalDate,     setModalDate]  = useState(null);
@@ -509,20 +502,17 @@ export default function Calendar() {
   const [panelOpen,     setPanelOpen]  = useState(true);
   const [transitioning, setTrans]      = useState(false);
 
-  // manualEvents her değiştiğinde kullanıcıya özgü key ile kaydet
-  useEffect(() => {
-    saveManualEvents(manualEvents);
-  }, [manualEvents]);
-
   // ── API fetch ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [tRes, sRes] = await Promise.allSettled([
+        const [tRes, sRes, cRes] = await Promise.allSettled([
           api.get('/api/tasks'),
           api.get('/api/subscriptions'),
+          api.get('/api/calendar'),
         ]);
+
         const ev = [];
 
         if (tRes.status === 'fulfilled') {
@@ -561,6 +551,12 @@ export default function Calendar() {
         }
 
         setApiEvents(ev);
+
+        // /api/calendar'dan gelen manuel etkinlikleri yükle
+        if (cRes.status === 'fulfilled') {
+          const calData = cRes.value.data?.data || cRes.value.data || [];
+          setManualEvents(calData.map(mapApiCalendarEvent));
+        }
       } catch (error) {
         console.error('Takvim verileri çekilirken hata:', error);
         setApiEvents([]);
@@ -616,22 +612,28 @@ export default function Calendar() {
     if (openModal) { setModalDate(d); setShowModal(true); }
   }, [panelOpen]);
 
-  const handleAddEvent = useCallback((eventData) => {
-    const newEvent = {
-      id:       eventData.id || generateId(),
-      title:    eventData.title,
-      type:     eventData.type,
-      date:     eventData.date,
-      priority: eventData.priority,
-      note:     eventData.note || '',
-      subtitle: 'Manuel Etkinlik',
-      isManual: true,
+  // ── Etkinlik ekle → POST /api/calendar ───────────────────────────────────────
+  const handleAddEvent = useCallback(async (formData) => {
+    const payload = {
+      title:     formData.title,
+      eventDate: toLocalDateTime(formData.date),
+      category:  formData.type,
+      color:     EVENT_TYPES[formData.type]?.dot || '#6c6af6',
+      priority:  (formData.priority || 'medium').toUpperCase(),
     };
-    setManualEvents(prev => [...prev, newEvent]);
+    const res = await api.post('/api/calendar', payload);
+    const saved = res.data?.data || res.data;
+    setManualEvents(prev => [...prev, mapApiCalendarEvent(saved)]);
   }, []);
 
-  const handleDeleteEvent = useCallback((eventId) => {
-    setManualEvents(prev => prev.filter(ev => ev.id !== eventId));
+  // ── Etkinlik sil → DELETE /api/calendar/:id ───────────────────────────────────
+  const handleDeleteEvent = useCallback(async (eventId) => {
+    try {
+      await api.delete(`/api/calendar/${eventId}`);
+      setManualEvents(prev => prev.filter(ev => ev.id !== eventId));
+    } catch (error) {
+      console.error('Etkinlik silinemedi:', error);
+    }
   }, []);
 
   const cells = getMonthGrid(curYear, curMonth);

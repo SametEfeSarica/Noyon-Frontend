@@ -367,13 +367,13 @@ export default function DashboardHome() {
 
           <div className="relative z-10 p-6 flex items-end justify-between h-full" style={{ minHeight: 180 }}>
             <div className="flex items-end gap-5">
-              <Avatar name={summary?.username} size={56} />
+              <Avatar name={summary?.displayName || summary?.username} size={56} />
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm text-gray-300">{greeting},</p>
                 </div>
                 <h1 className="text-2xl font-bold text-white mb-1">
-                  {loading ? 'Yükleniyor...' : summary?.username || 'Kullanıcı'}
+                  {loading ? 'Yükleniyor...' : summary?.displayName || summary?.username || 'Kullanıcı'}
                 </h1>
                 <p className="text-xs text-gray-400 mt-0.5">Bugün ne yapacağız?</p>
               </div>
